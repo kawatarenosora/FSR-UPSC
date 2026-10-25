@@ -1,0 +1,12 @@
+Shim + DLSS library placement (Windows):
+
+1. Build fsrupsc_ngx64.dll from fsrupsc_ngx.cpp with MSVC (see header comment).
+   Needs NVIDIA DLSS SDK (public GitHub, ~600MB, SDK license).
+2. Copy to <game>/natives/ next to the game's native DLLs:
+     natives/fsrupsc_ngx64.dll   (your MSVC build)
+     natives/nvngx_dlss.dll    (from the SDK, never re-hosted here)
+3. Without both files NgxSupport.ready()==false and the agent runs as FSR1.
+   console.txt tells which file is missing.
+
+Linux names for reference: libfsrupsc_ngx64.so / libnvidia-ngx-dlss.so.*
+macOS: DLSS unsupported (stays FSR1).

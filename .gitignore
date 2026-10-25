@@ -1,0 +1,31 @@
+# build output (agent jar under 42/agent is committed)
+build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+out/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor backups
+*~
+*.bak
+*.swp
+
+# Local-only files, not part of the published repository:
+#   workshop.txt  - Workshop upload descriptor (holds the not-yet-assigned
+#                   Workshop ID)
+workshop.txt
+
+# Measurement data
+*.jfr
+reports/

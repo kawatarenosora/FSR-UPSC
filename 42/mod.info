@@ -1,0 +1,21 @@
+name=FSR-UPSC (javaagent)
+id=FSR_UPSC
+modversion=1.1.0
+versionMin=42.21
+author=kawatarenosora
+description=AMD FidelityFX (FSR) upscaling for Project Zomboid B42 via a javaagent. World pass renders at a reduced resolution (FidelityFX quality presets) and is resolved with FSR 1 EASU+RCAS, or FSR 2 / FSR 3.1 temporal upscaling (GL compute) with injected sub-pixel camera jitter, depth chain, auto-reactive masks and entity motion vectors, plus optional software frame generation on the present path (FsrControl.fsr2FgTest). Falls back to FSR 1 automatically on any compute fault. Install the agent jar first, see 42/agent/README.txt. Built for game revision 4a0e9546ec.
+
+Game-ready agent jar goes here.
+
+Build it with: ..\..\scripts\build-agent.ps1
+  - compiles src\fsrupsc against the game jar
+  - checks zombie/GitVersion REVISION == 4a0e9546ec (NOT "42.21")
+  - outputs: fsr-upsc-agent.jar (copy that file into this folder)
+
+Install it with: ..\..\scripts\install-agent.ps1
+  - copies this folder's fsr-upsc-agent.jar next to projectzomboid.jar
+  - adds "-javaagent:fsr-upsc-agent.jar" + "--enable-native-access=ALL-UNNAMED"
+    to ProjectZomboid64.json (backs it up once)
+  - no extra properties needed: hooks default to all, downscale defaults ON
+  - Pure GL (fsr2/fsr3 compute + software frame generation);
+    no native bridge is required or shipped

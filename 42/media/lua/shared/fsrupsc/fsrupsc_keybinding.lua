@@ -1,0 +1,6 @@
+-- fsrupsc: key binding file (placeholder).
+-- FSR-UPSC has no in-world overlay yet; runtime status lives in
+--   console.txt / fsr-upsc-agent.log  (fsrupsc.FsrLog)
+--   and can be queried from Lua: fsrupsc.FsrControl.status()
+-- This file intentionally registers nothing; kept so the shared script list
+-- stays stable.

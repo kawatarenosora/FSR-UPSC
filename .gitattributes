@@ -1,0 +1,5 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+# PS1 / jar are best left alone
+*.ps1 text eol=crlf
+*.jar binary

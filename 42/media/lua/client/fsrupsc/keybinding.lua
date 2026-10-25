@@ -1,0 +1,3 @@
+-- FSR-UPSC Keybindings
+-- No key bindings registered yet; this file intentionally does nothing.
+-- (Placeholder so the client script list stays stable.)

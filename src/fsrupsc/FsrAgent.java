@@ -1,0 +1,55 @@
+package fsrupsc;
+
+import java.lang.instrument.Instrumentation;
+import fsrupsc.FsrSettings;
+import fsrupsc.FsrConfig;
+import fsrupsc.RenderScale;
+
+/**
+ * Load-time agent only. No late attach: schema-changing patches
+ * (added fields/methods) are legal at define-time, illegal via
+ * redefine/retransform. Mismatched game revision => register nothing.
+ */
+public final class FsrAgent {
+    // NOTE: build/compare by jar revision hash, never by "42.21" label.
+    static final String TARGET_REVISION = "4a0e9546ec";
+
+    public static void premain(String args, Instrumentation inst) {
+        if (!FsrTransformer.revisionMatches()) {
+            System.out.println("[fsr-upsc] revision mismatch, running stock (no transform)");
+            return;
+        }
+
+        // Initialize settings
+        FsrSettings.load();
+        FsrConfig.sync();
+        RenderScale.reconfigure();
+
+        // Install FIRST. The FG setting restore below must not run before
+        // this: FgPresent.setPace's auto modes read
+        // org.lwjglx.opengl.Display.getDisplayMode(), which loads the Display
+        // class -- and a class loaded before install() is never transformed
+        // (byte-buddy does not retransform without a redefinition strategy),
+        // so the swapBuffers hook would silently never fire and FG would do
+        // nothing at all. Applying the restore after install keeps the
+        // first-ever load of Display inside an armed transformer.
+        FsrTransformer.install(inst);
+
+        // FG insert style / pacing from ModOptions.ini/settings (pure static
+        // toggles, no GL at premain); FgPresent flips them again on live
+        // option apply -- where the display frequency is already available
+        // for the auto pacing modes.
+        try { FgPresent.setTest(FsrConfig.FG_TEST); } catch (Throwable ignored) {}
+        try { FgPresent.setPace(FsrConfig.FG_PACE); } catch (Throwable ignored) {}
+
+        String armed = "[fsr-upsc] agent armed for " + TARGET_REVISION
+            + " hooks=" + FsrHooks.hookSpec()
+            + " downscale=" + RenderScale.downscaleEnabled();
+        System.out.println(armed);
+        try {
+            fsrupsc.FsrLog.log(armed);
+        } catch (Throwable ignored) {}
+    }
+
+    private FsrAgent() {}
+}
