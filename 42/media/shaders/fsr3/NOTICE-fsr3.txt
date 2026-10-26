@@ -36,11 +36,34 @@ scripts/gen-shaders.ps1 from these files -- edit here and regenerate).
 
 Pass attribution: these passes correspond to the MIT-licensed headers in
 AMD's repository (Kits/FidelityFX/upscalers/fsr3/include/gpu/fsr3upscaler/,
-incl. ffx_fsr3upscaler_accumulate/shading_change etc., under the full MIT
-text included below) and to fsr-reloaded (GLSL 430 port; author
-Human-Name998, MIT per the Modrinth project gFl0kYvv, which is the
-license attribution carried here in lieu of a verbatim license file with
-that artifact).
+incl. ffx_fsr3upscaler_accumulate/shading_change etc.; full MIT text below)
+and to fsr-reloaded (GLSL 430 port; author Human-Name998).
+
+fsr-reloaded portion: the GLSL port glue sourced from fsr-reloaded 2.1.0
+is governed by the standard MIT License that its author declares on
+Modrinth (project gFl0kYvv; API license id "MIT", no custom text, so the
+canonical MIT text reproduces as):
+
+  Copyright (c) 2026 Human-Name998 (fsr-reloaded)
+
+  Permission is hereby granted, free of charge, to any person obtaining a
+  copy of this software and associated documentation files (the
+  "Software"), to deal in the Software without restriction, including
+  without limitation the rights to use, copy, modify, merge, publish,
+  distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to
+  the following conditions:
+
+  The above copyright notice and this permission notice shall be included
+  in all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+  LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+  OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 The AMD MIT text applies to the underlying pass sources:
 

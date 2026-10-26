@@ -25,11 +25,14 @@
      Micro Devices, Inc.` + 本文は `NOTICE-fsr2.txt` / `NOTICE-fsr3.txt`
      に同梱、MIT の copyright/permission 同梱義務履行)。
   2) fsr-reloaded — GLSL 430 移植本体。作者 **Human-Name998**、Modrinth
-     (`gFl0kYvv`) で MIT 表明 (fabric.mod.json `license: "MIT"` /
-     `authors: ["Human-Name998"]`)。リポジトリ本体/jar 内にライセンス文書は
-     存在せず、jar 内 `natives/AMD_FSR_API_LICENSE.txt` はプレースホルダ
-     スタブのため grant としては引用しない。MIT 義務の履行は
-     1) の MIT 本文同梱 + 上記作者 attribution で代行する。
+     (`gFl0kYvv`) で標準 MIT を表明 (API license id `MIT`, url null。
+     `fabric.mod.json` も `license: "MIT"` / `authors: ["Human-Name998"]`)。
+     リポジトリ本体/jar 内にライセンス文書は存在せず、jar 内
+     `natives/AMD_FSR_API_LICENSE.txt` はプレースホルダスタブのため grant
+     としては引用しない。**Modrinth で表明された標準 MIT が grant として
+     使える**ため、`NOTICE-fsr2.txt` / `NOTICE-fsr3.txt` に
+     `Copyright (c) 2026 Human-Name998 (fsr-reloaded)` 附きの標準 MIT 本文を
+     同梱して MIT の copyright/permission 義務を履行する。
   本 NOTICE と各 NOTICE-*.txt は同梱物と共に維持すること。
 - **MC 固有ヒューリスティクス**: fsr-reloaded の GLSL には Minecraft 用
   sky/cloud 分類が残存する。FSR-UPSC はシェーダ本文を改変せず、ホストが
