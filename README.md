@@ -85,7 +85,7 @@ Main Menu → Options → Mods → **FSR-UPSC** (`FSR_UPSC_Options.lua` → save
 | Explicit scale % | 0 (preset) / 50 / 60 / 69 / 78 (with 16px snapping) / **83 (fixed 1600x900** — the least degrading downscale choice on a 1920x1080 display. A height of 900 is not rounded to 896 by the 16px snap) |
 | RCAS sharpening | 0–100% (default 80) |
 | Frame generation | off / 2-duplicate insertion / 3-interpolated insertion (applied immediately, default off) |
-| FG pacing | off (for VSync ON) / safe (-1) / fast (-2) (applied immediately) |
+| FG pacing | off (pace by VSync, needs VSync ON) / safe (pace by sleep, VSync OFF) / fast (pace by sleep, VSync OFF, may tear) (applied immediately) |
 
 fsr2 / fsr3 run as real passes on GL 4.3 compute-capable GPUs (verified). On a compute
 fault the frame is rescued with fsr1, and the fault pins fsr1 for the rest of the session.
@@ -97,11 +97,16 @@ options UI and the console.
 
 ## Frame generation (FgPresent)
 
-A double-present scheme on the present path (`Display#swapBuffers`). **Requires
-VSync ON** (the loop stretches to 2 vsyncs — PZ's FPS readout dropping to about half is
-normal, while the screen presents inserted frames at the full display rate). **Only when
-you pass a hook-narrowing setting** keep `present` included (with the default `all`,
-nothing to do — the agent's default keeps `present` active even via external launchers).
+A double-present scheme on the present path (`Display#swapBuffers`). One loop
+presents one real frame plus one inserted frame, and the timing of these two flips
+needs a **pacer** — either VSync or the mod's own sleep. Exactly one of the two must
+be active: the FG pacing option selects which one, and each pacing mode pairs with
+exactly one VSync setting (see the table below; the default pairing is FG pacing
+`off` + **VSync ON**). With the default pairing the loop stretches to 2 vsyncs —
+PZ's FPS readout dropping to about half is normal, while the screen presents inserted
+frames at the full display rate. **Only when you pass a hook-narrowing setting** keep
+`present` included (with the default `all`, nothing to do — the agent's default keeps
+`present` active even via external launchers).
 
 Inserted frames are built from copies of the two real frames before and after
 (the world+UI composited back buffer):
@@ -118,19 +123,31 @@ FsrControl.fsr2FgTest(0|2|3)
 FsrControl.fsr2FgMvSign(-1|1)     -- flip the warp direction (default = sign verified in M2)
 FsrControl.fsr2FgMvScale(0.25)    -- per-pixel half-shift scale (console only)
 FsrControl.fsr2FgMult(1|2|3)      -- insertions per real frame (default 1 = 2x baseline)
-FsrControl.fsr2FgPace(0|-1|-2|N)  -- pacing for VSync OFF (experimental)
+FsrControl.fsr2FgPace(0|-1|-2|N)  -- pacing: 0 pairs with VSync ON, -1/-2/N with VSync OFF
 FsrControl.fsr2FgHudSnap(0|1)     -- snap replay of static HUD text (default 1, console only)
 FsrControl.fsr2FgMvFlip(0..31)    -- MV field sign/axis experiment toggle (default 0 = correct, console only)
 FsrControl.fsr2OffSign(±1)
 FsrControl.status()               -- check fgtest= real= inserted= interp= pxmv= pace=
 ```
 
-`fsr2FgPace` details:
+`fsr2FgPace` details. The pairing rule is: **choose one pacer** — VSync paces the
+loop (pacing `off`), or the mod paces it by sleep (pacing `safe`/`fast`/`N`). Mixing
+both pacers, or leaving the loop with none, breaks the cadence; what to pair:
 
-- `0` = off (default, assumes VSync ON)
-- `-1` = automatic safe side: exposure = 1 refresh (loop = display rate / 2, no tearing)
-- `-2` = automatic fast: exposure = 1/2 refresh (loop ≈ display rate, tearing can occur)
-- `N > 0` = manual exposure (0.1 ms units; 167 ≈ 60Hz full exposure / 83 ≈ 60Hz half exposure)
+| `fsr2FgPace` | Pair with | Result |
+|---|---|---|
+| `0` = off (default) | **VSync ON** | VSync paces the loop (2 vsyncs per real+inserted pair). **Most stable.** No tearing. |
+| `-1` = safe | **VSync OFF** | The mod paces with full-refresh exposure. Same cadence as `off` (loop = display rate / 2), no tearing. The VSync-OFF counterpart of `off`. |
+| `-2` = fast | **VSync OFF** | The mod paces with half-refresh exposure. Loop ≈ display rate (higher cadence than safe), but a flip can land mid-scanout, so occasional tearing/flicker is possible. |
+| `N > 0` = manual | VSync OFF | Console-only exposure in 0.1 ms units (167 ≈ 60Hz full exposure / 83 ≈ 60Hz half exposure). |
+
+Wrong pairings and their symptoms:
+
+- `off` + **VSync OFF**: no pacer at all. Both flips flush immediately, the insertion
+  cadence collapses (judder/flicker).
+- `safe`/`fast` + **VSync ON**: two pacers fight. VSync already blocks every flip, so
+  the mod's sleep stacks on top of the vsync wait and the pacing drifts (slow /
+  stutter).
 
 Before the inserted flip, exposure for one prior real frame is guaranteed
 (spacing = exposure × 2); after the inner swap the code sleeps for just the
