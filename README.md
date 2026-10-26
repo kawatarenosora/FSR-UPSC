@@ -1,255 +1,276 @@
-# FSR-UPSC — Project Zomboid B42 用 AMD FidelityFX (FSR) アップスケーラー mod
+# FSR-UPSC — AMD FidelityFX (FSR) upscaler mod for Project Zomboid B42
 
-**完全新規ネームスペース `fsrupsc`** で構成した FSR 1/2/3 + ソフトウェアフレーム生成専用 mod。
+A mod dedicated to FSR 1/2/3 plus software frame generation, built on a **completely
+new namespace `fsrupsc`**.
 
-- **FSR 1**: 空間アップスケール（EASU + RCAS）。compute 不能/fault 時の自動フォールバック先
-- **FSR 2.1 / FSR 3.1**: 時間的アップスケール（純 GL compute、ネイティブブリッジ不使用）
-  詳細は `docs/PHASE2-FSR3.md` / `docs/PHASE2-FSR3-GLSLDESIGN.md`
-- **ソフトウェアフレーム生成** (`FgPresent`, `FsrControl.fsr2FgTest`): present path 上の
-  ダブルプレゼント方式
+- **FSR 1**: spatial upscaling (EASU + RCAS). The automatic fallback target when
+  compute is unavailable or faults
+- **FSR 2.1 / FSR 3.1**: temporal upscaling (pure GL compute, no native bridge).
+  See `docs/PHASE2-FSR3.md` / `docs/PHASE2-FSR3-GLSLDESIGN.md` for details
+- **Software frame generation** (`FgPresent`, `FsrControl.fsr2FgTest`):
+  a double-present scheme on the present path
 
-参考にした実装: `mc-fsr` (Fabric, MIT)、`fsr-reloaded` (FSR2/3 GLSL compute)。
+Implementations referenced: `mc-fsr` (Fabric, MIT), `fsr-reloaded` (FSR2/3 GLSL compute).
 
-このリポジトリは公開版で、テスト版にあった計測専用の足場
-（outline/cone trace、mv probe、swap interval histogram、周期ログ emit）は
-実使用で不要なオーバーヘッドとなるため除去しています。確定修正と機能トグルのみが
-本体に残ります。開発期の診断記録は `docs/DIAGNOSIS-HISTORY.md` に退避。
+This repository is the public release. The measurement-only scaffolding that existed
+in the test build (outline/cone trace, mv probe, swap interval histogram, periodic
+log emit) has been removed because it is needless overhead in actual use. Only the
+settled fixes and feature toggles remain in the main body. Development-era
+diagnostic records are archived in `docs/DIAGNOSIS-HISTORY.md`.
 
-## ディレクトリ
+## Layout
 
 ```
-42/                  mod本体（mod.info, media/lua, media/shaders, agent jar）
-  agent/             fsr-upsc-agent.jar（ビルド成果物）
-src/fsrupsc/         javaagent ソース（package fsrupsc の単一パッケージ）
-scripts/             build-agent.ps1 / install-agent.ps1 / rebrand.ps1(当時の変換記録)
-vendor/lib/          byte-buddy 1.18.8（unshaded）
-docs/                設計文書 + 開発診断ログ (DIAGNOSIS-HISTORY.md)
+42/                  mod body (mod.info, media/lua, media/shaders, agent jar)
+  agent/             fsr-upsc-agent.jar (build artifact)
+src/fsrupsc/         javaagent source (single package: fsrupsc)
+scripts/             build-agent.ps1 / install-agent.ps1 / rebrand.ps1 (one-time conversion record)
+vendor/lib/          byte-buddy 1.18.8 (unshaded)
+docs/                design documents + development diagnostic log (DIAGNOSIS-HISTORY.md)
 ```
 
-## ビルド
+## Build
 
 ```powershell
-# ゲームディレクトリ・リビジョンはスクリプト既定（E:\...\ProjectZomboid, 4a0e9546ec）
+# Game directory and revision default to the script values (E:\...\ProjectZomboid, 4a0e9546ec)
 powershell -ExecutionPolicy Bypass -File scripts\build-agent.ps1
 ```
 
-- JDK 25 が必要（`C:\Program Files\Java` から自動検出もする）
-- `<game>/projectzomboid.jar` の `zombie/GitVersion` を読み、**リビジョン不一致ならビルド中断**。
-  ゲームが更新されたら `-Revision <新hash>` を渡す（エージェントも文字列で同じハッシュを待つ）。
-- 成果物: `42\agent\fsr-upsc-agent.jar`（byte-buddy を jar 内展開して自己完結）
+- Requires JDK 25 (auto-detected from `C:\Program Files\Java` as well)
+- Reads `zombie/GitVersion` from `<game>/projectzomboid.jar` and **aborts the build on a
+  revision mismatch**. After a game update, pass `-Revision <new hash>` (the agent also
+  waits for the same hash as a string).
+- Output: `42\agent\fsr-upsc-agent.jar` (byte-buddy unpacked into the jar; self-contained)
 
-## インストール / アンインストール
+## Install / Uninstall
 
-ゲームを終了しておくこと。**他のレンダースケール系 agent mod を同時装着しない**こと（二重パッチ衝突）。
+Quit the game first. **Do not run another render-scale agent mod at the same time**
+(double-patch conflict).
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1            # attach
-powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1 -Detach    # vmArgsだけ外す（判定用）
-powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1 -Uninstall  # vmArgs+jar削除
+powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1 -Detach    # remove vmArgs only (for testing)
+powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1 -Uninstall # vmArgs + jar removal
 ```
 
-attach で書き込まれる vmArgs:
+vmArgs written by attach:
 
 ```
 -javaagent:fsr-upsc-agent.jar
 --enable-native-access=ALL-UNNAMED
 ```
 
-**それ以外は不要**です (hook マスク既定 = 全 groups 含む `present`,
-downscale マスター既定 = ON)。絞り込み無効化は任意の上書きチャンネル:
+**Nothing else is required** (the hook mask defaults to all groups, including
+`present`; the downscale master defaults to ON). Optional override channels for
+narrowing/disabling:
 
 ```
--Dfsrupsc.hooks=all            (絞る: loop,internal,fbo,draw,viewport,present — FG test には present が必須)
--Dfsrupsc.downscale=false      (downscale パスを無効化して完全ストック動作に戻す)
+-Dfsrupsc.hooks=all            (narrow to: loop,internal,fbo,draw,viewport,present — FG test requires present)
+-Dfsrupsc.downscale=false      (disable the downscale path for completely stock behavior)
 ```
 
-優先順: env `FSRUPSC_DOWNSCALE` > `~\Zomboid\fsr-upsc-downscale` ファイル > `-Dfsrupsc.downscale`
-（PZ JAM Launcher は未知の `-D` を落とすためフォールバック多段。hooks も
-env `FSRUPSC_HOOKS` > `~\Zomboid\fsr-upsc-hooks` > `-Dfsrupsc.hooks` 同様）
+Priority: env `FSRUPSC_DOWNSCALE` > `~\Zomboid\fsr-upsc-downscale` file > `-Dfsrupsc.downscale`
+(the PZ JAM Launcher drops unknown `-D` flags, hence the multi-level fallback. The same
+applies to hooks: env `FSRUPSC_HOOKS` > `~\Zomboid\fsr-upsc-hooks` > `-Dfsrupsc.hooks`)
 
-## 設定（ゲーム内）
+## Configuration (in game)
 
-Main Menu → Options → Mods → **FSR-UPSC**（`FSR_UPSC_Options.lua` → `Zomboid\Lua\ModOptions.ini` に保存、起動時に premain が読む）
+Main Menu → Options → Mods → **FSR-UPSC** (`FSR_UPSC_Options.lua` → saved to
+`Zomboid\Lua\ModOptions.ini`, read at startup by premain)
 
-| 項目 | 値 |
+| Item | Values |
 |---|---|
-| Upscaler | off / bicubic / **fsr1** / **fsr2** / **fsr3**（compute 不可能/fault 時は fsr1 に自動フォールバック） |
+| Upscaler | off / bicubic / **fsr1** / **fsr2** / **fsr3** (automatic fallback to fsr1 when compute is unavailable or faults) |
 | Quality preset | Ultra Quality (1/1.285) / **Quality (1/1.444)** / Balanced (1/1.667) / Performance (1/2) / Native |
-| Explicit scale % | 0(プリセット) / 50 / 60 / 69 / 78（16px スナップ付き） / **83 (1600x900 固定** — 1920x1080 環境で最も劣化の少ない縮小選択。高さ 900 は 16px スナップで 896 に丸めない) |
-| RCAS sharpening | 0–100%（既定 80） |
-| Frame generation | off / 2 複製挿入 / 3 補間挿入（即時適用、既定 off） |
-| FG pacing | off (VSync ON 用) / safe (-1) / fast (-2)（即時適用） |
+| Explicit scale % | 0 (preset) / 50 / 60 / 69 / 78 (with 16px snapping) / **83 (fixed 1600x900** — the least degrading downscale choice on a 1920x1080 display. A height of 900 is not rounded to 896 by the 16px snap) |
+| RCAS sharpening | 0–100% (default 80) |
+| Frame generation | off / 2-duplicate insertion / 3-interpolated insertion (applied immediately, default off) |
+| FG pacing | off (for VSync ON) / safe (-1) / fast (-2) (applied immediately) |
 
-fsr2 / fsr3 は GL 4.3 compute 対応 GPU で実パスとして動作（検証済み）。
-compute fault 時はそのフレームを fsr1 で救助し、fault はセッション限定で fsr1 継続。
+fsr2 / fsr3 run as real passes on GL 4.3 compute-capable GPUs (verified). On a compute
+fault the frame is rescued with fsr1, and the fault pins fsr1 for the rest of the session.
 
-FG の warp 方向反転 (`fsr2FgMvSign`) と手動露出微調整 (`fsr2FgPace(N)`,
-0.1ms 単位) は Lua コンソール専用（オプション UI には出さない）。
-`fsr2FgPace` の off/safe/fast はオプション UI・コンソールともに設定へ永続化。
+FG warp direction flip (`fsr2FgMvSign`) and manual exposure fine-tuning
+(`fsr2FgPace(N)`, 0.1 ms units) are console-only (not exposed in the options UI).
+The off/safe/fast values of `fsr2FgPace` are persisted to the settings from both the
+options UI and the console.
 
-## フレーム生成（FgPresent）
+## Frame generation (FgPresent)
 
-present path (`Display#swapBuffers`) 上のダブルプレゼント方式。**VSync ON 前提**
-（ループが 2 vsync に伸び、PZ の FPS 表示は約半分になるのが正常で、画面は
-全表示レートで挿入フレームを提示）。**hooks を絞る設定を渡す場合のみ**
-`present` を残すこと（既定 all なら操作不要 — 外部ランチャー経由でも
-エージェント既定で `present` は有効）。
+A double-present scheme on the present path (`Display#swapBuffers`). **Requires
+VSync ON** (the loop stretches to 2 vsyncs — PZ's FPS readout dropping to about half is
+normal, while the screen presents inserted frames at the full display rate). **Only when
+you pass a hook-narrowing setting** keep `present` included (with the default `all`,
+nothing to do — the agent's default keeps `present` active even via external launchers).
 
-挿入フレームは前後 2 実フレーム (world+UI 合成済み back buffer) の copy から作る:
+Inserted frames are built from copies of the two real frames before and after
+(the world+UI composited back buffer):
 
-- **fsr2FgTest(2) 複製挿入**: 実フレームの replay。**推奨 (安定)**。
-  cadence だけ倍増する方式で、ちらつき出ない
-- **fsr2FgTest(3) 補間挿入**: per-pixel MV field で前後 copy を warp 合成
-  （compute が生きていない場合は camera shift、それも不可なら複製にフォールバック）。
-  お好みで。mvScale 0.25 (= mv field の半分 Shift、probe 実測と理論一致) は code default
+- **fsr2FgTest(2) duplicate insertion**: replay of the real frame. **Recommended (stable)**.
+  A pure cadence doubling; no flicker
+- **fsr2FgTest(3) interpolated insertion**: warp-blends the before/after copies with a
+  per-pixel MV field (falls back to camera shift when compute is not live, and to
+  duplication when even that is impossible). Optional. The mvScale 0.25 (= half the
+  shift of the MV field; matches both probe measurement and theory) is the code default
 
 ```lua
 FsrControl.fsr2FgTest(0|2|3)
-FsrControl.fsr2FgMvSign(-1|1)     -- warp 方向の反転（既定 = M2 検証済み符号）
-FsrControl.fsr2FgMvScale(0.25)    -- per-pixel half-shift 倍率 (console 専用)
-FsrControl.fsr2FgMult(1|2|3)      -- 1 実フレームあたりの挿入数 (既定 1 = 2x ベーシング)
-FsrControl.fsr2FgPace(0|-1|-2|N)  -- VSync OFF 用ペーシング（実験）
-FsrControl.fsr2FgHudSnap(0|1)     -- 静止 HUD 文字の snap 再生（既定 1, console 専用）
-FsrControl.fsr2FgMvFlip(0..31)    -- mv field 符号/軸実験トグル (既定 0 = 正解, console 専用)
+FsrControl.fsr2FgMvSign(-1|1)     -- flip the warp direction (default = sign verified in M2)
+FsrControl.fsr2FgMvScale(0.25)    -- per-pixel half-shift scale (console only)
+FsrControl.fsr2FgMult(1|2|3)      -- insertions per real frame (default 1 = 2x baseline)
+FsrControl.fsr2FgPace(0|-1|-2|N)  -- pacing for VSync OFF (experimental)
+FsrControl.fsr2FgHudSnap(0|1)     -- snap replay of static HUD text (default 1, console only)
+FsrControl.fsr2FgMvFlip(0..31)    -- MV field sign/axis experiment toggle (default 0 = correct, console only)
 FsrControl.fsr2OffSign(±1)
-FsrControl.status()               -- fgtest= real= inserted= interp= pxmv= pace= を確認
+FsrControl.status()               -- check fgtest= real= inserted= interp= pxmv= pace=
 ```
 
-`fsr2FgPace` の詳細:
+`fsr2FgPace` details:
 
-- `0` = off（既定、VSync ON 前提）
-- `-1` = 自動安全側: 露出 = 1 refresh（ループ = 表示レート/2、テア無し）
-- `-2` = 自動高速: 露出 = 1/2 refresh（ループ ≈ 表示レート、tearing 発生し得る）
-- `N > 0` = 手動露出（0.1ms 単位、167 ≈ 60Hz 全露出 / 83 ≈ 60Hz 半露出）
+- `0` = off (default, assumes VSync ON)
+- `-1` = automatic safe side: exposure = 1 refresh (loop = display rate / 2, no tearing)
+- `-2` = automatic fast: exposure = 1/2 refresh (loop ≈ display rate, tearing can occur)
+- `N > 0` = manual exposure (0.1 ms units; 167 ≈ 60Hz full exposure / 83 ≈ 60Hz half exposure)
 
-挿入 flip 前に前実フレーム分の露出（spacing = 露出 × 2）を確保し、inner swap 後に
-露出窓だけ sleep してから実フレームを復元。走査アライメントは制御しないので
-境界の軽微な tearing は残り得る。
+Before the inserted flip, exposure for one prior real frame is guaranteed
+(spacing = exposure × 2); after the inner swap the code sleeps for just the
+exposure window and then restores the real frame. Scanout alignment is not controlled,
+so slight tearing at the boundaries can remain.
 
-挿入フレームの既知限界: UI は 1 フレーム古い (world+UI 合成済み back buffer の
-copy 由来)、高速度 entity は mismatch 重み付けで current 側に寄せつつもわずかに
-smear。still / zoom 変化 / reset / 新鮮な dispatch 無し（loading・pause 等の
-dispatch epoch 不変）フレームは複製にフォールバック。
+Known limits of inserted frames: the UI is one frame stale (inherited from the copy of
+the world+UI composited back buffer), fast-moving entities are weighted toward the
+current side by the mismatch weighting while still smearing slightly. Still /
+zoom-changing / reset / no-fresh-dispatch (frames whose dispatch epoch is unchanged,
+e.g. loading and pause) fall back to duplication.
 
-**細部ちらつきの結論 (2026-10-26)**: 補間 (fsr2FgTest(3)) の挿入フレームは
-2 実フレームの融合体であるため、細かく見るとフレーム全体で微小ちらつきが
-原理的に発生する（実フレームの crisp 表示と交互に提示されることが源）。
-画面静止 HUD の文字（インベントリ行/ダッシュボード数字等）については
-`fsr2FgHudSnap` (既定 ON) が内容変化時のピクセルを current copy 単独再生に
-snap して二重ゴーストを除去済みだが、world 自体は不可避と判定。
-複製挿入 (`fsr2FgTest(2)`) は安定しているため **推奨構成は複製側**。
+**Fine-flicker conclusion (2026-10-26)**: interpolated (fsr2FgTest(3)) inserted frames
+are a blend of two real frames, so frame-wide micro flickering is inherent in principle
+when viewed closely (it originates in being alternated with crisp real frames). For
+static screen HUD text (inventory rows, dashboard digits, etc.), `fsr2FgHudSnap`
+(default ON) snaps changed pixels to a replay of the current copy alone and removes the
+double ghost; the world itself was judged unavoidable. Duplicate insertion
+(fsr2FgTest(2)) is stable, so the **recommended configuration is the duplicate side**.
 
-## ライブ制御（Lua → Java）
+## Live control (Lua → Java)
 
-エージェントが `LuaManager$Exposer#exposeAll` にアドバイスを差し込み、Lua 初期化時に
-`fsrupsc.FsrControl` を環境へ登録します。コンソールに
-`[fsr-upsc] exposed fsrupsc.FsrControl (+FsrControl alias)` が出れば成功。
+The agent injects advice into `LuaManager$Exposer#exposeAll` and registers
+`fsrupsc.FsrControl` into the environment at Lua initialization. Success is confirmed by
+`[fsr-upsc] exposed fsrupsc.FsrControl (+FsrControl alias)` in the console.
 
 ```lua
-local fsr = rawget(_G, "FsrControl")            -- トップレベル別名
+local fsr = rawget(_G, "FsrControl")            -- top-level alias
 -- or: local fsr = rawget(rawget(_G, "fsrupsc"), "FsrControl")
 fsr.setUpscaler("fsr1") ; fsr.setUpscalerQuality("balanced")
 fsr.setUpscalerScalePct(60) ; fsr.setFsrSharpnessPct(85)
-fsr.status()        -- upscaler/mode/quality/scale + 状態串
-fsr.resolveStatus() -- resolve 成功率
-fsr.log("...")      -- fsr-upsc-agent.log への書き込み
+fsr.status()        -- upscaler/mode/quality/scale + state probes
+fsr.resolveStatus() -- resolve success rate
+fsr.log("...")      -- write to fsr-upsc-agent.log
 ```
 
-実験トグルの全体像: `fsr2FgMvSign / fsr2FgMvScale / fsr2FgMult / fsr2FgPace(N) /
-fsr2FgMvFlip / fsr2FgHudSnap / fsr2OutlineFix / fsr2OffSign / setFsr2Debug` などは
-console 専用（persist なし）。確定済みの値は code default に反映済み。
+Full picture of experimental toggles: `fsr2FgMvSign / fsr2FgMvScale / fsr2FgMult /
+fsr2FgPace(N) / fsr2FgMvFlip / fsr2FgHudSnap / fsr2OutlineFix / fsr2OffSign /
+setFsr2Debug` etc. are console-only (not persisted). Settled values are already
+reflected in the code defaults.
 
-ログ: `%USERPROFILE%\Zomboid\fsr-upsc-agent.log` と console.txt（`[fsr-upsc]` タグ）。
-ログはセッション冒頭と失敗時のみ書き、フレームごとの測定出力はない。
+Logging: `%USERPROFILE%\Zomboid\fsr-upsc-agent.log` and console.txt (with the
+`[fsr-upsc]` tag). Logs are written only at session start and on failure; there is no
+per-frame measurement output.
 
-## セーフティ設計
+## Safety design
 
-- リビジョン不一致 → 何も変換せず完全ストック動作
-- `RenderScale.disable()` が失敗時に永久にストックへフォールバック（理由をログ）
-- ワールドパス限定 = UI/テキスト/コンポジットはフル解像度のまま
-- GL はレンダースレッドのみ、フック本体での GL query / allocation / log禁止
-- 視界コーンはスケール対象外（`fsrupsc-nocone` マーカーで任意抑制）
+- Revision mismatch → no transformation at all, completely stock behavior
+- If `RenderScale.disable()` fails, permanent stock fallback (reason logged)
+- World pass only = UI/text/composite stay at full resolution
+- GL on the render thread only; no GL query / allocation / logging in hook bodies
+- The vision cone is excluded from scaling (optionally suppressed with the
+  `fsrupsc-nocone` marker)
 
-## 確定修正レコード
+## Settled fix records
 
-- **outline ズレ修正 (2026-10-26)**: スケーリング時、near ターゲット（ゾンビ/コンテナ）
-  のアウトラインが実像より左上方向に 0.775x (= 1488/1920) 縮んで表示される問題。
-  原因: `ModelOutlines.endFrame` 内の 4 カ所 glViewport はすべて同一ローカル rect を
-  使い、fboA の mask は世界パスと同一 camera basis (= region 座標) で既に描かれている。
-  viewport funnel が world-bound の blit (:234) も region サイズに絞ったため mask に
-  **2 回目の squeeze** が乗っていた（縮率が SCALE 1 回分と一致することが決定打）。
-  修正: `RenderScale.requestedViewport` の `OUTLINE_VP_RAW` (code default ON) で
-  endFrame seam 全行の funnel 書換を SKIP（blit は fboA→world 1:1）。seam 判定は
-  `RenderScale.endFrameRawVp()`（stack 走査）。`FsrControl.fsr2OutlineFix(0)` で戻せる。
-- **composite flood 修正**: `ResolveOutput.compositeTexture` は `inWindowThread()` gate
-  で composite スレッドのみ substituted texture を返す。render thread が outline の
-  fboA/B/C `getTexture` を window 開放中に通ると swap が漏れて outline 色で
-  フレーム全体が flood する。
-- **menu starvation 誤発動修正 (2026-10-24)**: メインメニューの背景合成は world pass
-  無しで毎フレーム走るため、`composite starved` カウンタ（120 で session 全域 disable）
-  が「world が一度も無い段階」で満たされ、起動直後に mod 全体が stock のまま遊ぶ
-  事故の型。starvation 計数は resolve pipeline が一度でも走ったあとに限定。
-  fail-safe 発動後の console 再武装 `FsrControl.fsrReenable()` を搭載。
-- **FG still gate 確定 (2026-10-24)**: 補間の停止判定は `CameraMotion.stillExact()`
-  (d < 0.01px) のみ。旧緩い閾値 (0.5px) は歩行 delta と同桁で dup freeze-jump
-  による全画面振動を生んでいた。
-- **FG HUD snap (fsr2FgHudSnap, 2026-10-26)**: 補間挿入フレームで内容が変わった
-  画面静止 HUD ピクセルを current copy 単独再生にする（シェーダ uFlags bit5、
-  dz > 0.05 閾値、noise は従来ブレンド維持）。
+- **Outline offset fix (2026-10-26)**: when scaling, outlines of near targets
+  (zombies/containers) displayed shrunk 0.775x (= 1488/1920) toward the upper left of
+  the real image. Cause: the four glViewport calls in `ModelOutlines.endFrame` all used
+  the same local rect, while fboA's mask had already been drawn in the same camera basis
+  as the world pass (= region coordinates). Because the viewport funnel also narrowed
+  the world-bound blit (:234) to the region size, the mask got a **second squeeze**
+  (the deciding evidence was the shrink factor matching exactly one application of
+  SCALE). Fix: `RenderScale.requestedViewport`'s `OUTLINE_VP_RAW` (code default ON)
+  SKIPS the funnel rewrite on the entire endFrame seam (blit is fboA→world 1:1). Seam
+  detection is `RenderScale.endFrameRawVp()` (stack scan). Reversible with
+  `FsrControl.fsr2OutlineFix(0)`.
+- **Composite flood fix**: `ResolveOutput.compositeTexture` returns the substituted
+  texture only when gated by `inWindowThread()`. If the render thread passed the outline
+  fboA/B/C `getTexture` while the window swap was open, the swap leaked and the frame
+  flooded with the outline color.
+- **Menu starvation false-positive fix (2026-10-24)**: the main menu background composite
+  runs every frame without a world pass, so the `composite starved` counter (120 →
+  session-wide disable) could be filled "at a stage where the world never existed" — a
+  failure pattern where the whole mod stayed stock right after launch. Starvation
+  counting is now restricted to after the resolve pipeline has run at least once.
+  Includes console re-arming `FsrControl.fsrReenable()` after a fail-safe fires.
+- **FG still gate settled (2026-10-24)**: interpolation's stop detection is only
+  `CameraMotion.stillExact()` (d < 0.01px). The old loose threshold (0.5px) was the same
+  order as walking deltas and caused full-screen vibration from dup freeze-jumps.
+- **FG HUD snap (fsr2FgHudSnap, 2026-10-26)**: pixels of screen-static HUD whose content
+  changed are replayed from the current copy alone in interpolated insertion frames
+  (shader uFlags bit5, dz > 0.05 threshold, noise keeps the usual blending).
 
-## 主要コンポーネント
+## Main components
 
-- `src/fsrupsc/IsoViewProjection.java` — screen-space ortho VP 合成（reprojection 用
-  curr/prev/inv ペア。`OFFSIGN` は `FsrControl.fsr2OffSign(±1)` で反転）
-- `src/fsrupsc/CameraMotion.java` — `IsoCamera.frameState` 由来の camera delta / still /
-  zoom 変化・resume gap 検知（reset = MV クリア＋frameIndex=0）
-- `src/fsrupsc/MotionField.java` + `MV_OVERRIDE_CS.glsl` — ObjectMotion entity rect を
-  camera MV へ上書き（std140 UBO、render px 単位、`mv = dx*zoom*k`）
-- `Fsr2Compute` — fsr2: 8 compute programs（MV_GEN/MV_OVERRIDE/RECONSTRUCT/
-  DEPTH_CLIP/AUTO_REACTIVE/LOCK/ACCUMULATE/RCAS）; fsr3: 9（fsr3 セット +
-  SHADING_CHANGE）。debug は `FsrControl.setFsr2Debug(n)`（3=mv 可視化）
-- `src/fsrupsc/CameraJitter.java` — world pass への sub-pixel jitter 注入
-  （Halton(2,3)、`IsoCamera.frameState` の offX/offY read/modify/write、
-  pass 終了後に値一致確認つきで復帰）。ACCUMULATE de-jitter と LOCK
-  `hrPosFromLrPos` に実 jitter を供給。既定 off、`FsrControl.fsr2Jitter(0/1)`。
-  compute fault 時は自動で注入停止。
-- `src/fsrupsc/DepthProxy.java` + `DEPTH_PROXY_CS.glsl` — world FBO の depth
-  attachment を probe（型/フォーマット、1 回ログ）→ `glBlitFramebuffer(DEPTH)` で
-  自前 same-format depth FBO へ → R32F 逆深度マップ（`viewZ = 1/d`、背景=far）に
-  変換し `uUseDepth=1` を RECONSTRUCT/DEPTH_CLIP/ACCUMULATE に昇格。既定 off、
-  `FsrControl.fsr2Depth(0/1/2)`（1=auto, 2=force）。
-- `AUTO_REACTIVE_CS.glsl` + `Fsr2Compute` M3 統合 — auto-reactive: 現在色と
-  prevUv（MV フィールド由来）の prev 色の輝度差で screen-space オーバーレイ
-  （outline/view cone/パーティクル/攻撃ハイライト等、MV 対象外の注視点系）を
-  検出して fresh-sample weight を与える。FSR4 合成 MV_GEN の T&C 仕様を忠実移植。
-  prev color は dispatch 終了時に `glCopyImageSubData(colorTex→prevColorTex)`。
-  既定 ON、`FsrControl.fsr2AutoReactive(0/1)`。
-- M3.1 停止時リセット — 移動→`stillExact`（<0.01px）への遷移 1 度で
-  `currentFrameIndex=0`（静止位置基準で再収束）。
-- M3.2 `fsr2CamReactive(0-5)` — 移動時 smear 減衰（fsr-reloaded の
-  `uCamReactive` フロア移植）。既定 1（mild）、0 で off。
-- `42/media/shaders/fsr3/*.glsl` + `Fsr3Shaders.java` + `Fsr2Compute` M4 統合 —
-  fsr3 モード実装: mod の fsr3 シェーダセット（SHADING_CHANGE 含む 9 program）を
-  借用し、8x8 タイル luma-ratio diff の SHADING_CHANGE pass を dispatch 順
-  MV → SHADING_CHANGE → RECONSTRUCT に挿入。M3 の auto-reactive も
-  fsr3 DEPTH_CLIP に同移植済み。
-- `src/fsrupsc/Fsr2Shaders.java` — AMD FidelityFX FSR2 compute シェーダ＋MV_OVERRIDE を内蔵
-  （`42/media/shaders/fsr2/*.glsl` が上流ミラー、`scripts/gen-shaders.ps1` で再生成）
-- `Upscaler`: `fsr2`/`fsr3` モードは compute が利用可能なら `runResolve` 経由で
-  Fsr2Compute dispatch、失敗時はそのフレームを fsr1 で救助（compute fault は
-  セッション限定、fsr1 は常に生きる）
-- `42/media/shaders/fsr_blit.vert + fsr_easu.frag + fsr_rcas.frag` — FSR 1 の
-  空間アップスケール 3 補完（フォールバック経路）
-- `src/fsrupsc/FgPresent.java` — ソフトウェアフレーム生成（ping-pong copy
-  保持、複製/補間挿入、HUD snap、VSync-off pacing、fail-safe strike 制御）
+- `src/fsrupsc/IsoViewProjection.java` — screen-space ortho VP composition
+  (curr/prev/inv pairs for reprojection; `OFFSIGN` is flipped by
+  `FsrControl.fsr2OffSign(±1)`)
+- `src/fsrupsc/CameraMotion.java` — camera delta / still / zoom-change / resume-gap
+  detection derived from `IsoCamera.frameState` (reset = MV clear + frameIndex=0)
+- `src/fsrupsc/MotionField.java` + `MV_OVERRIDE_CS.glsl` — overwrites ObjectMotion entity
+  rects into the camera MV (std140 UBO, render px units, `mv = dx*zoom*k`)
+- `Fsr2Compute` — fsr2: 8 compute programs (MV_GEN/MV_OVERRIDE/RECONSTRUCT/
+  DEPTH_CLIP/AUTO_REACTIVE/LOCK/ACCUMULATE/RCAS); fsr3: 9 (the fsr3 set +
+  SHADING_CHANGE). Debug is `FsrControl.setFsr2Debug(n)` (3 = MV visualization)
+- `src/fsrupsc/CameraJitter.java` — injects sub-pixel jitter into the world pass
+  (Halton(2,3); read-modify-write of `IsoCamera.frameState` offX/offY, restored after
+  the pass with a value-match check). Feeds the real jitter to ACCUMULATE de-jitter and
+  LOCK `hrPosFromLrPos`. Default off, `FsrControl.fsr2Jitter(0/1)`. Stops injection
+  automatically on compute fault.
+- `src/fsrupsc/DepthProxy.java` + `DEPTH_PROXY_CS.glsl` — probes the world FBO's depth
+  attachment (type/format, logged once) → `glBlitFramebuffer(DEPTH)` into a own-format
+  depth FBO → converted to an R32F inverted-depth map (`viewZ = 1/d`, background = far)
+  and promotes `uUseDepth=1` for RECONSTRUCT/DEPTH_CLIP/ACCUMULATE. Default off,
+  `FsrControl.fsr2Depth(0/1/2)` (1 = auto, 2 = force).
+- `AUTO_REACTIVE_CS.glsl` + `Fsr2Compute` M3 integration — auto-reactive: detects
+  screen-space overlays (outline/view cone/particles/attack highlights etc., gaze-point
+  systems outside MV coverage) via the luma difference between current color and the
+  prev color at prevUv (from the MV field) and grants fresh-sample weight. A faithful
+  port of FSR4's composite MV_GEN T&C spec. Prev color is captured at dispatch end via
+  `glCopyImageSubData(colorTex→prevColorTex)`. Default ON, `FsrControl.fsr2AutoReactive(0/1)`.
+- M3.1 stop reset — a single transition from moving to `stillExact` (<0.01px) sets
+  `currentFrameIndex=0` (re-converges on the static position basis).
+- M3.2 `fsr2CamReactive(0-5)` — attenuates motion smear (a port of fsr-reloaded's
+  `uCamReactive` floor). Default 1 (mild), 0 disables.
+- `42/media/shaders/fsr3/*.glsl` + `Fsr3Shaders.java` + `Fsr2Compute` M4 integration —
+  the fsr3 mode implementation: borrows the mod's fsr3 shader set (9 programs including
+  SHADING_CHANGE) and inserts the 8x8 tile luma-ratio diff SHADING_CHANGE pass in
+  dispatch order MV → SHADING_CHANGE → RECONSTRUCT. The M3 auto-reactive is also
+  ported into fsr3 DEPTH_CLIP.
+- `src/fsrupsc/Fsr2Shaders.java` — embeds the AMD FidelityFX FSR2 compute shaders +
+  MV_OVERRIDE (`42/media/shaders/fsr2/*.glsl` is the upstream mirror, regenerated by
+  `scripts/gen-shaders.ps1`)
+- `Upscaler`: `fsr2`/`fsr3` modes run Fsr2Compute dispatch via `runResolve` when compute
+  is available, and on failure rescue that frame with fsr1 (a compute fault is
+  session-limited; fsr1 always stays alive)
+- `42/media/shaders/fsr_blit.vert + fsr_easu.frag + fsr_rcas.frag` — FSR 1's spatial
+  upscaling trio (the fallback path)
+- `src/fsrupsc/FgPresent.java` — software frame generation (ping-pong copy retention,
+  duplicate/interpolated insertion, HUD snap, VSync-off pacing, fail-safe strike control)
 
-## ライセンス / 第三者ライブラリ
+## License / third-party libraries
 
-`THIRD-PARTY-NOTICES.md` を参照（AMD FidelityFX GLSL 由来、fsr-reloaded 由来、
-byte-buddy Apache-2.0。フレーム生成は自前実装で第三者コード非同梱）。
+See `THIRD-PARTY-NOTICES.md` (AMD FidelityFX GLSL origin, fsr-reloaded origin,
+byte-buddy Apache-2.0. Frame generation is our own implementation and bundles no
+third-party code).
 
-## 開発記録
+## Development records
 
-開発期の診断過程（outline ズレ・FG 振動・ちらつき等の切り分け手順と実測）は
-`docs/DIAGNOSIS-HISTORY.md`、Phase 2 設計は `docs/PHASE2-FSR3.md` /
-`docs/PHASE2-FSR3-GLSLDESIGN.md`。
+The development-era diagnostic process (triage procedures and measurements for the
+outline offset, FG vibration, flicker, etc.) is in `docs/DIAGNOSIS-HISTORY.md`;
+Phase 2 design is in `docs/PHASE2-FSR3.md` / `docs/PHASE2-FSR3-GLSLDESIGN.md`.
