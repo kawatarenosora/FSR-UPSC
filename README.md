@@ -91,8 +91,9 @@ FG の warp 方向反転 (`fsr2FgMvSign`) と手動露出微調整 (`fsr2FgPace(
 
 present path (`Display#swapBuffers`) 上のダブルプレゼント方式。**VSync ON 前提**
 （ループが 2 vsync に伸び、PZ の FPS 表示は約半分になるのが正常で、画面は
-全表示レートで挿入フレームを提示）。外部ランチャー使用時は hooks に
-`present` を含めること。
+全表示レートで挿入フレームを提示）。**hooks を絞る設定を渡す場合のみ**
+`present` を残すこと（既定 all なら操作不要 — 外部ランチャー経由でも
+エージェント既定で `present` は有効）。
 
 挿入フレームは前後 2 実フレーム (world+UI 合成済み back buffer) の copy から作る:
 
