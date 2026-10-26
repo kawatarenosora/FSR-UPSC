@@ -27,8 +27,7 @@
 ## 2. AMD FidelityFX FSR 1 空間アップスケール (EASU + RCAS フラグメント)
 
 - `42/media/shaders/fsr_easu.frag` は**自前実装** (AMD コードではない; ファイル
-  冒頭を参照)。アルゴリズム上の参照として DlssFilterModel.java (CPU reference)
-  を用いた。
+  冒頭を参照)。アルゴリズム上の参照として開発期の Java 製 CPU reference 実装を用いた。
 - `42/media/shaders/fsr_rcas.frag` は AMD FidelityFX FSR RCAS の数式を実装した
   GLSL ポート。(AMD MIT 互換、§1 と同様の扱い。)
 - `42/media/shaders/fsr2/RCAS_CS.glsl` / `fsr3/RCAS_CS.glsl` は上流に同一内容
@@ -47,10 +46,6 @@
 
 - **mc-fsr** (Fabric, MIT): FSR2/FSR3 のセッションフォールバック原則や
   MV/カメラ統合の構造を参考にした。コードは欠けていない (組み込んでいない)。
-- **PZ_Optimization (xD3I)** (`vendor/upstream/`): DLSS/NGX ネイティブ shim の
-  記録。DLSS-UPSC 側で使用するもので、FSR-UPSC 自体はこれを**使用しない**。
-  NVIDIA DLSS SDK バイナリはライセンス上 `vendor/upstream/` に置かず、
-  ビルド時に別途 clone する (`vendor/upstream/SDK_NOTE.txt`)。
 - **fsr-reloaded**: §1 の入手元。fsr-reloaded 自体のコードは FSR-UPSC に
   直接同梱していない (GLSL サブセットのみ)。
 

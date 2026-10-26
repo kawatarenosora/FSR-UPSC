@@ -9,7 +9,7 @@
 // the pass can never invent values outside its footprint (no halos, no
 // NaN/Inf: the weight sum is renormalised and the kernel is finite).
 //
-// The math mirrors DlssFilterModel.java (CPU reference, numerically
+// The math mirrors the Java CPU reference model (numerically
 // verified: step transition as tight as bilinear, RCAS stage restores
 // acutance, flat areas untouched). Jitter is in input pixels for the
 // future temporal path; pass 0 for now.

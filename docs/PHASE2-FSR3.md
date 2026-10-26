@@ -32,8 +32,7 @@ NativeGlInterop.*  // GL 側 import/export
 - FSRProcessor / ScaledRenderTarget / JitterManager / ShaderBinaryCache / TemporalBlendShader が構成点
 
 ### oslo-render (0.1.0 "complet", `org.projectomega`)
-- DLSS/FG は NVIDIA **Streamline** (sl.*.dll + nvngx_dlssg) + 自前 native bridge (`project_omega_native.dll`)
-- 全レンダラ置換型で PZ には過剰。FG は非 NPU ベンダーDLLを Steam 上のゲームへ同梱配布できない注意
+- 全レンダラ置換型で PZ には過剰。外部ベンダーDLLを Steam 上のゲームへ同梱配布できない注意
 
 ## 1. 移植の分岐点：ネイティブ DLL 方式 vs GLSL compute 方式
 
@@ -55,7 +54,7 @@ PZ の GL パイプライン（単一 FBO / TextureFBO 合成済み）と相性�
 |---|---|---|
 | フレーム内的縮小レンダー | `RenderScale` | `scaledRect()`、縮小世代 `shrunkGen()` rendezvous |
 | ジッタ | `RenderScale.setJitter/ frameJitterX/Y` | FSR2/3 の jitter 入力用に呼び出し口がある（未実装） |
-| 深度/モーション capture | `ObjectMotion`, `NgxSupport` (休眠) | drawModel 前後の stencil/MV 記録フックは DLSS 時代実装 |
+| 深度/モーション capture | `ObjectMotion` | drawModel 前後の rect/MV 記録フック |
 | resolve 実行点 | `Upscaler.resolveAtWorldEnd / resolveAtComposite` | TextureFBO endDrawing / MultiTextureFBO2.render 入口 |
 | GL program/quad | `Resolve`, `Gl` | fsr1 が §330 GLSL で動く。compute も GL43 を同じ helper で展開可能 |
 | 設定/UI/自動画質 | `FsrSettings`, `FSR_UPSC_Options.lua`, AutoQuality | モード項目追加済み (`fsr2`/`fsr3`) |

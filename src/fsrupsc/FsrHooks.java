@@ -362,11 +362,6 @@ public final class FsrHooks {
             loopLogged = true;
             emit("hook fired: RenderThread.renderLoop on " + Thread.currentThread().getName());
             try {
-                // NGX init on the render-context thread (shim serializes anyway).
-                emit(NgxSupport.status());
-            } catch (Throwable t) {
-            }
-            try {
                 emit("downscale=" + fsrupsc.RenderScale.downscaleEnabled()
                     + " renderScale=" + fsrupsc.RenderScale.describe());
             } catch (Throwable t) {

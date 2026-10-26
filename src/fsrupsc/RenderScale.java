@@ -269,8 +269,8 @@ public final class RenderScale {
         if (CONE_VP.get() && isScreenRect(x, y, w, h)) return false;
         if (!isScreenRect(x, y, w, h)) return false;
         // Upstream gates this on the same world-pass window as the camera
-        // override (RenderScale.requestedViewport calls inWorldPass()). Without
-        // it the funnel also shrinks draws that are not the world pass.
+        // override. Without it the funnel also shrinks draws that are not
+        // the world pass.
         if (!worldFboBound()) return false;
         // The outline's endFrame seams serve a pass whose mask is drawn in
         // region coordinates (same camera basis as the world pass), so NONE
@@ -557,10 +557,6 @@ public static float viewPx(float screenPixels) {
     public static float frameJitterX() { return jitterX; }
     public static float frameJitterY() { return jitterY; }
 
-    /** World-pass tracking for the DLSS water path (N2 frame stage). */
-    public static boolean inWorldPass() { return false; }
-    public static int worldPassPlayer() { return 0; }
-
     // -------------------------------------------------------------------------
     // Camera frame scaling.
     // -------------------------------------------------------------------------
@@ -722,7 +718,7 @@ public static int cameraScreenWidth() {
         }
     }
 
-    public static void applyWorldViewport(int w, int h) { /* TODO (N2 DLSS direct-color) */ }
+    public static void applyWorldViewport(int w, int h) { /* TODO (N2 direct-color path) */ }
     public static void afterStartFrame(int player) { /* reserved */ }
     public static void afterModelDraw() { /* reserved */ }
     public static void afterEndFrame() { /* reserved */ }

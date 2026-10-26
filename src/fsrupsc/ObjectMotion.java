@@ -21,7 +21,6 @@ import zombie.iso.PlayerCamera;
  */
 public final class ObjectMotion {
     static final int MAX_IDS = 126;
-    static final int WATER_ID = 127;
     private static final int SLOTS = 4;
 
     /** One frame's entries: screen-pixel rects (x, y, w, h; y down) + motion (dx, dy). */
@@ -185,23 +184,6 @@ public final class ObjectMotion {
             GLStateRenderThread.StencilOp.restore();
             GLStateRenderThread.StencilMask.restore();
             GLStateRenderThread.StencilTest.restore();
-        } catch (Throwable ignored) {}
-    }
-
-    /** Water stencil tag (DLSS water mask path; inert until the frame lands). */
-    public static void beginWaterStencil() {
-        try {
-            if (!NgxSupport.waterMasked()) {
-                waterOff++;
-                return;
-            }
-            if (!RenderScale.inWorldPass() || RenderScale.worldPassPlayer() != 0) {
-                waterElsewhere++;
-                return;
-            }
-            waterTagged++;
-            waterTaggedThisFrame++;
-            beginStencil(WATER_ID);
         } catch (Throwable ignored) {}
     }
 

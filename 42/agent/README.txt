@@ -14,7 +14,6 @@ Install it with: ..\..\..\scripts\install-agent.ps1 -GameDir "E:\Program Files (
   - optional overrides:
       -Hooks '<groups>'           restrict the hook mask
       -NoDownscale                disable the world downscale path
-      -ForceNgx                   force the NGX shim probe
       (or without the script: env FSRUPSC_DOWNSCALE / marker file
        Zomboid\fsr-upsc-downscale / -Dfsrupsc.downscale, same for hooks)
 

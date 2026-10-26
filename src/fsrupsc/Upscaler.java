@@ -14,7 +14,6 @@ import zombie.core.textures.TextureFBO;
  *   fsr1     spatial EASU + RCAS resolve
  *   fsr2     temporal (M3 auto-reactive compute path)
  *   fsr3     temporal (M4 FSR3 compute path: + SHADING_CHANGE)
- *   ngx      dormant DLSS passthrough (internal, not exposed in the UI)
  */
 public final class Upscaler {
     private static volatile boolean temporalNote;
@@ -39,8 +38,6 @@ public final class Upscaler {
             }
             return "fsr1";
         }
-        if ("ngx".equalsIgnoreCase(lower)) return "fsr1"; // dormant until the bridge exists
-        if ("xess".equalsIgnoreCase(lower)) return "fsr1";
         return lower;
     }
 
@@ -112,7 +109,7 @@ private static final class Params {
         Params p = params;
         if (!RenderScale.active()) return null;
         String m = mode();
-        if (!"fsr1".equalsIgnoreCase(m) && !"ngx".equalsIgnoreCase(m)
+        if (!"fsr1".equalsIgnoreCase(m)
                 && !"fsr2".equalsIgnoreCase(m) && !"fsr3".equalsIgnoreCase(m)) return null;
         float s = RenderScale.scale();
         if (s >= 0.999f) return null;
@@ -404,9 +401,6 @@ private static final class Params {
             fsrupsc.FsrLog.log(line);
         } catch (Throwable ignored) {}
     }
-
-    public static void queueResolve() { /* TODO (N2 DLSS direct-color) */ }
-    static void resolve(Object frame) { /* TODO (N2 DLSS direct-color) */ }
 
     private Upscaler() {}
 }

@@ -333,8 +333,9 @@ depth attachment を持つ可能性が高いが、**jar public API から depth 
     entity rect 内 pixel には rect の (dx,dy) を代入する** (UBO/SSBO 126x vec4 = 2KB、
     image 書き込みでスプライト全体ではなく rect 内 px のみ上書き)。Phase 2 の
     **最大の ready-made asset**。
-  - **注意**: ObjectMotion は `FsrConfig.isUpscalerObjectMv()` で toggle、stencil
-    tagging は DLSS トレース用の旧経路。Phase 2 では stencil なし / rect データのみ使う。
+  - **注意**: ObjectMotion は `FsrConfig.isUpscalerObjectMv()` で toggle (stencil
+    tagging は drawModel 前後で現存)。Phase 2 / 公開版では stencil データは参照せず
+    rect データのみ使う。
   - **animation artifact (zombie 歩行 anim、植物 anim、雨・パーティクル)**: camera MV
     では零で → 当該 pixel が「静止」と誤認し ghost 化。対策は 3 段:
     (i) FSR3 SHADING_CHANGE (M4)、

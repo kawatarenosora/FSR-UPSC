@@ -40,13 +40,6 @@ public final class FsrControl {
         FsrConfig.sync();
     }
 
-    /** Dormant NGX support; kept for the future FidelityFX bridge work. */
-    public static void setNgxPreset(String v) {
-        FsrSettings.get().ngxPreset = v;
-        FsrSettings.get().save();
-        FsrConfig.sync();
-    }
-
     public static void setUpscalerObjectMv(boolean v) {
         FsrSettings.get().upscalerObjectMv = v;
         FsrSettings.get().save();

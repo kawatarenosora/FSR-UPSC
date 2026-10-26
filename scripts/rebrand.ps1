@@ -25,12 +25,9 @@ foreach ($f in $files) {
   $t = $t -creplace 'FsrHooks',       'FsrHooks'
   $t = $t -creplace 'FsrTransformer', 'FsrTransformer'
   $t = $t -creplace 'FsrControl',     'FsrControl'
-  $t = $t -creplace 'fsrupsc\.NgxSupport\b',   'fsrupsc.NgxSupport'
-  $t = $t -creplace '\bDlss\b',        'NgxSupport'
   $t = $t -creplace '\bAgentLog\b',    'FsrLog'
   $t = $t -creplace '\bConfig\b',      'FsrConfig'
   # package prefix / file labels
-  $t = $t -creplace 'fsrupsc_ngx', 'fsrupsc_ngx'
   $t = $t -creplace 'fsrupsc\.(/|%2F)?', 'fsrupsc'
   $t = $t -creplace 'fsrupsc\.', 'fsrupsc.'
   $t = $t -creplace 'fsrupsc/',  'fsrupsc/'

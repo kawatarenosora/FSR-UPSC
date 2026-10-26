@@ -7,7 +7,7 @@
 // noise is not amplified), clamped per channel to the 3x3 neighbourhood
 // range so the pass can never ring outside its footprint.
 //
-// The math mirrors DlssFilterModel.rcas (CPU reference, numerically
+// The math mirrors the Java CPU reference model (numerically
 // verified: sharp=0 is the identity, output stays inside the 3x3 range).
 //
 // Uniforms:

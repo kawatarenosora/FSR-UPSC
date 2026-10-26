@@ -21,7 +21,6 @@ public final class FsrSettings {
     /** FG VSync-off pacing ("FgPresent#setPace"): 0 off (VSync assumed),
      *  -1 auto-safe (1 refresh exposure), -2 auto-fast (1/2 refresh). */
     public int fgPace = 0;
-    public String ngxPreset = "default";
     public boolean upscalerObjectMv = true;
 
     private static FsrSettings INSTANCE = new FsrSettings();
@@ -35,7 +34,6 @@ public final class FsrSettings {
         INSTANCE.upscalerQuality = "quality";
         INSTANCE.upscalerScalePct = 0;
         INSTANCE.fsrSharpnessPct = 80;
-        INSTANCE.ngxPreset = "default";
         INSTANCE.upscalerObjectMv = true;
         INSTANCE.fgTest = 0;
         INSTANCE.fgPace = 0;
@@ -68,9 +66,6 @@ public final class FsrSettings {
                     INSTANCE.fgPace = (p == -1 || p == -2 || p > 0) ? p : 0;
                 }
 
-                v = extractJsonString(txt, "\"ngxPreset\"");
-                if (v != null) INSTANCE.ngxPreset = v;
-
                 String omv = extractJsonBool(txt, "\"upscalerObjectMv\"");
                 if (omv != null) INSTANCE.upscalerObjectMv = Boolean.parseBoolean(omv);
 
@@ -96,8 +91,6 @@ public final class FsrSettings {
             try { INSTANCE.fsrSharpnessPct = Integer.parseInt(System.getProperty("fsrupsc.fsrSharp")); }
             catch (NumberFormatException ignored) {}
         }
-        if (System.getProperty("fsrupsc.ngxPreset") != null)
-            INSTANCE.ngxPreset = System.getProperty("fsrupsc.ngxPreset");
         if (System.getProperty("fsrupsc.fgTest") != null) {
             try {
                 INSTANCE.fgTest = Math.max(0,
@@ -121,7 +114,6 @@ public final class FsrSettings {
             sb.append("  \"upscalerQuality\": \"").append(upscalerQuality).append("\",\n");
             sb.append("  \"upscalerScalePct\": ").append(upscalerScalePct).append(",\n");
             sb.append("  \"fsrSharpnessPct\": ").append(fsrSharpnessPct).append(",\n");
-            sb.append("  \"ngxPreset\": \"").append(ngxPreset).append("\",\n");
             sb.append("  \"fgTest\": ").append(fgTest).append(",\n");
             sb.append("  \"fgPace\": ").append(fgPace).append(",\n");
             sb.append("  \"upscalerObjectMv\": ").append(upscalerObjectMv).append("\n");
@@ -172,7 +164,6 @@ public final class FsrSettings {
     private static final String[] UPSCALERS = { "off", "bicubic", "fsr1", "fsr2", "fsr3" };
     private static final String[] QUALITIES = { "ultra_quality", "quality", "balanced", "performance", "native" };
     private static final String[] SCALES = { "0", "50", "60", "69", "78" };
-    private static final String[] PRESETS = { "default", "f", "e", "k", "j", "m", "l" };
 
     /** Read B42 native ModOptions file written by FSR_UPSC_Options.lua. */
     private static void loadModOptionsIni() {
@@ -215,10 +206,6 @@ public final class FsrSettings {
                             // 3=fast=-2); manual N stays console-only.
                             int pi = Integer.parseInt(val);
                             INSTANCE.fgPace = pi == 2 ? -1 : pi == 3 ? -2 : 0;
-                            break;
-                        case "NgxPreset":
-                            String pv = pick(PRESETS, parseIdx(val));
-                            if (pv != null) INSTANCE.ngxPreset = pv;
                             break;
                         case "UpscalerObjectMv":
                             if ("true".equalsIgnoreCase(val) || "false".equalsIgnoreCase(val))

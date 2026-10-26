@@ -1,6 +1,6 @@
 # FSR-UPSC — Project Zomboid B42 用 AMD FidelityFX (FSR) アップスケーラー mod
 
-`pzopt` / DLSS-UPSC の実績あるレンダースケール基盤を**完全新規ネームスペース `fsrupsc`** で再構成した FSR 専用 mod。
+**完全新規ネームスペース `fsrupsc`** で構成した FSR 1/2/3 + ソフトウェアフレーム生成専用 mod。
 
 - **FSR 1**: 空間アップスケール（EASU + RCAS）。compute 不能/fault 時の自動フォールバック先
 - **FSR 2.1 / FSR 3.1**: 時間的アップスケール（純 GL compute、ネイティブブリッジ不使用）
@@ -8,8 +8,7 @@
 - **ソフトウェアフレーム生成** (`FgPresent`, `FsrControl.fsr2FgTest`): present path 上の
   ダブルプレゼント方式
 
-参考にした実装: `mc-fsr` (Fabric, MIT)、`fsr-reloaded` (FSR2/3 GLSL compute)、
-`oslo-render` (Streamline/DLSS-FG 版)。
+参考にした実装: `mc-fsr` (Fabric, MIT)、`fsr-reloaded` (FSR2/3 GLSL compute)。
 
 このリポジトリは公開版で、テスト版にあった計測専用の足場
 （outline/cone trace、mv probe、swap interval histogram、周期ログ emit）は
@@ -24,7 +23,6 @@
 src/fsrupsc/         javaagent ソース（package fsrupsc の単一パッケージ）
 scripts/             build-agent.ps1 / install-agent.ps1 / rebrand.ps1(当時の変換記録)
 vendor/lib/          byte-buddy 1.18.8（unshaded）
-vendor/upstream/     元ネイティブ実装メモ（DLSS/NGX は休眠中）
 docs/                設計文書 + 開発診断ログ (DIAGNOSIS-HISTORY.md)
 ```
 
@@ -42,7 +40,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build-agent.ps1
 
 ## インストール / アンインストール
 
-ゲームを終了しておくこと。**DLSS-UPSC 等の他エージェントが同時装着されない**こと（二重パッチ衝突）。
+ゲームを終了しておくこと。**他のレンダースケール系 agent mod を同時装着しない**こと（二重パッチ衝突）。
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1            # attach
@@ -246,8 +244,8 @@ console 専用（persist なし）。確定済みの値は code default に反�
 
 ## ライセンス / 第三者ライブラリ
 
-`THIRD-PARTY-NOTICES.md` を参照（AMD FidelityFX GLSL 出自、fsr-reloaded 由来、
-byte-buddy Apache-2.0、DLSS SDK 非同梱）。
+`THIRD-PARTY-NOTICES.md` を参照（AMD FidelityFX GLSL 由来、fsr-reloaded 由来、
+byte-buddy Apache-2.0。フレーム生成は自前実装で第三者コード非同梱）。
 
 ## 開発記録
 

@@ -18,10 +18,8 @@ param(
   [switch]$Status,
   # Optional overrides written into ProjectZomboid64.json vmArgs.
   #   -Hooks all|none|loop,internal,fbo,draw,viewport,present
-  #   -ForceNgx            load fsrupsc_ngx64.dll even when mode != dlss
   #   -NoDownscale         disable the world downscale path (default ON)
   [string]$Hooks = '',
-  [switch]$ForceNgx,
   [switch]$NoDownscale
 )
 $ErrorActionPreference = 'Stop'
@@ -59,7 +57,7 @@ if ($Uninstall) {
   $j.vmArgs = @($j.vmArgs | Where-Object { $_ -notlike '-javaagent:fsr-upsc*' -and $_ -ne '--enable-native-access=ALL-UNNAMED' })
   [IO.File]::WriteAllText($Json, ($j | ConvertTo-Json -Depth 10), (New-Object Text.UTF8Encoding $false))
   if (Test-Path -LiteralPath $AgentDst) { Remove-Item -LiteralPath $AgentDst -Force }
-  Write-Output 'uninstalled agent vmArgs + jar (natives/ shim left in place by hand)'
+  Write-Output 'uninstalled agent vmArgs + jar'
   exit 0
 }
 $running = Get-Process ProjectZomboid64 -ErrorAction SilentlyContinue
@@ -80,8 +78,7 @@ $ours = @(
   '--enable-native-access=ALL-UNNAMED'
 )
 if ($Hooks)      { $ours += "-Dfsrupsc.hooks=$Hooks" }
-if ($ForceNgx)   { $ours += '-Dfsrupsc.forceNgx=true' }
 if ($NoDownscale){ $ours += '-Dfsrupsc.downscale=false' }
 $j.vmArgs = @($keep) + @($ours)
 [IO.File]::WriteAllText($Json, ($j | ConvertTo-Json -Depth 10), (New-Object Text.UTF8Encoding $false))
-Write-Output "installed $AgentDst + vmArgs (hooks=$(if($Hooks){$Hooks}else{'default'}) forceNgx=$($ForceNgx.IsPresent) noDownscale=$($NoDownscale.IsPresent)); restart from Steam"
+Write-Output "installed $AgentDst + vmArgs (hooks=$(if($Hooks){$Hooks}else{'default'}) noDownscale=$($NoDownscale.IsPresent)); restart from Steam"
