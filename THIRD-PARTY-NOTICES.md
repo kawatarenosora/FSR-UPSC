@@ -16,11 +16,20 @@
   (AUTO_REACTIVE / DEPTH_PROXY / MV_OVERRIDE) のみ。数式
   (dither/Halton/jitter/reprojection/accu 係数) は上流のまま改変していない。
 - **ライセンス (2026-10-26 に実物に対して検証)**:
-  1) AMD 公式 FidelityFX-SDK リポジトリ — pass 系の原典が公開されている。
-     samples は MIT (`docs/license.md`)。
-  2) fsr-reloaded — Modrinth で MIT 表明。リポジトリ/jar 内に他のライセンス
-     文書は無く、jar 内 `natives/AMD_FSR_API_LICENSE.txt` はプレースホルダ
-     スタブのためライセンス grant としては引用しない。
+  1) AMD 公式 FidelityFX-SDK リポジトリ — `docs/license.md` は既定に
+     「AMD License」(バイナリ形態での配布許諾、リバースエンジニアリング禁止)
+     を置くが、**MIT の例外リスト**に `Kits/FidelityFX/upscalers/fsr3/
+     include/gpu/` 以下の FSR2/FSR3 compute pass 一式 (`ffx_fsr2_*.h` /
+     `ffx_fsr3upscaler_*.h`、FG の GLSL/xHL pass headers を含む) を列挙して
+     いる。従って本同梱物の出典 pass は **MIT** (`Copyright (C) Advanced
+     Micro Devices, Inc.` + 本文は `NOTICE-fsr2.txt` / `NOTICE-fsr3.txt`
+     に同梱、MIT の copyright/permission 同梱義務履行)。
+  2) fsr-reloaded — GLSL 430 移植本体。作者 **Human-Name998**、Modrinth
+     (`gFl0kYvv`) で MIT 表明 (fabric.mod.json `license: "MIT"` /
+     `authors: ["Human-Name998"]`)。リポジトリ本体/jar 内にライセンス文書は
+     存在せず、jar 内 `natives/AMD_FSR_API_LICENSE.txt` はプレースホルダ
+     スタブのため grant としては引用しない。MIT 義務の履行は
+     1) の MIT 本文同梱 + 上記作者 attribution で代行する。
   本 NOTICE と各 NOTICE-*.txt は同梱物と共に維持すること。
 - **MC 固有ヒューリスティクス**: fsr-reloaded の GLSL には Minecraft 用
   sky/cloud 分類が残存する。FSR-UPSC はシェーダ本文を改変せず、ホストが
@@ -58,8 +67,8 @@
 
 - **mc-fsr** (Fabric, MIT): FSR2/FSR3 のセッションフォールバック原則や
   MV/カメラ統合の構造を参考にした。コードは欠けていない (組み込んでいない)。
-- **fsr-reloaded**: §1 の入手元。fsr-reloaded 自体のコードは FSR-UPSC に
-  直接同梱していない (GLSL サブセットのみ)。
+- **fsr-reloaded**: §1 の入手元。Java 側実装・FG native DLL・設定 UI 等全体は
+  同梱しておらず、GLSL ミラー (§1) のみを取り込んでいる。
 
 ## 5. Project Zomboid / LWJGL
 

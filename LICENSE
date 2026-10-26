@@ -21,5 +21,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 Third-party components and their original licenses are documented in
-THIRD-PARTY-NOTICES.md (AMD FidelityFX shader GLSL is bundled under the
-AMD FidelityFX MIT-compatible license terms listed there).
+THIRD-PARTY-NOTICES.md.
