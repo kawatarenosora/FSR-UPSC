@@ -7,14 +7,14 @@ Target-Revision in its manifest, so PZ JAM Launcher's version-check gate can
 verify it against the installed game. An agent built for another revision
 refuses to transform at premain and the game runs stock.
 
-Build it with: ..\scripts\build-agent.ps1
+Build it with: ..\..\scripts\build-agent.ps1
   - compiles src\fsrupsc against <game>\projectzomboid.jar
   - reads the game revision from zombie/GitVersion (the hash, never "42.x")
-    and drops the jar into agent\<label>\ (42.21 / 42.22; override the
-    folder name with -VersionLabel)
+    and drops the jar into ..\<label>\ relative to this folder
+    (42\agent\42.21 / 42\agent\42.22; override with -VersionLabel)
   - the jar includes build-info.properties + manifest rev attributes
 
-Install it with: ..\scripts\install-agent.ps1
+Install it with: ..\..\scripts\install-agent.ps1
   - auto-detects the installed game build the same way and copies that
     folder's fsr-upsc-agent.jar next to projectzomboid.jar
     (override with -VersionLabel 42.21 / 42.22)

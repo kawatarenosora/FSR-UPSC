@@ -21,9 +21,9 @@ diagnostic records are archived in `docs/DIAGNOSIS-HISTORY.md`.
 ## Layout
 
 ```
-42/                  mod body (mod.info, media/lua, media/shaders)
-agent/               prebuilt agent jars, one folder per game build
-  42.21/ 42.22/      fsr-upsc-agent.jar (build artifacts)
+42/                  mod body (mod.info, media/lua, media/shaders, agent jar)
+  agent/             prebuilt agent jars, one folder per game build
+    42.21/ 42.22/    fsr-upsc-agent.jar (build artifacts)
 src/fsrupsc/         javaagent source (single package: fsrupsc)
 scripts/             build-agent.ps1 / install-agent.ps1 / rebrand.ps1 (one-time conversion record)
 vendor/lib/          byte-buddy 1.18.8 (unshaded)
@@ -43,7 +43,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build-agent.ps1
   supported builds map revision hash → output folder: `4a0e9546ec` → `42.21`,
   `e013dbb529` → `42.22`). The agent itself also waits for the same hash as a string
   and runs stock otherwise.
-- Output: `agent\<game build>\fsr-upsc-agent.jar` (byte-buddy unpacked into the jar;
+- Output: `42\agent\<game build>\fsr-upsc-agent.jar` (byte-buddy unpacked into the jar;
   self-contained). Each jar embeds `fsrupsc/build-info.properties` (`revision=<hash>`)
   plus `Target-Revision` in its manifest, which the PZ JAM Launcher revision gate reads.
 
@@ -51,7 +51,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build-agent.ps1
 
 Quit the game first. **Do not run another render-scale agent mod at the same time**
 (double-patch conflict). The install script auto-detects the installed game build and
-copies the matching `agent\<game build>\fsr-upsc-agent.jar`.
+copies the matching `42\agent\<game build>\fsr-upsc-agent.jar`.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1            # attach

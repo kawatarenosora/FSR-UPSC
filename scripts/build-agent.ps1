@@ -4,7 +4,7 @@ Build fsr-upsc-agent.jar against the installed game revision.
 .DESCRIPTION
 Compiles src/agent + src/fsrupsc with javac (JDK 25+) against
 <game>/projectzomboid.jar, verifies zombie/GitVersion REVISION and
-drops agent/<label>/fsr-upsc-agent.jar, where <label> is the game
+drops 42/agent/<label>/fsr-upsc-agent.jar, where <label> is the game
 build folder (42.21 / 42.22) derived from the revision hash. Use the
 hash, never the "42.x" label, for revision checks.
 #>
@@ -56,7 +56,7 @@ $Javac = Resolve-JdkTool 'javac'
 $JarTool = Resolve-JdkTool 'jar'
 $Root = Split-Path -Parent $PSScriptRoot
 $Out = Join-Path $Root 'build\agent-classes'
-$AgentDir = Join-Path $Root "agent\$Label"
+$AgentDir = Join-Path $Root "42\agent\$Label"
 $AgentJar = Join-Path $AgentDir 'fsr-upsc-agent.jar'
 Remove-Item -Recurse -Force $Out -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
@@ -67,7 +67,7 @@ if ($Bb.Count -eq 0) { throw "no byte-buddy jars in $BbDir" }
 & $Javac -encoding UTF-8 -cp ($Jar + ';' + ($Bb -join ';')) -d $Out $Sources
 if ($LASTEXITCODE -ne 0) { throw 'javac failed' }
 # Keep the mod-folder copy (used by PZ JAM Launcher) in sync when present.
-$ModJar = Join-Path $env:USERPROFILE "Zomboid\mods\FSR-UPSC\agent\$Label\fsr-upsc-agent.jar"
+$ModJar = Join-Path $env:USERPROFILE "Zomboid\mods\FSR-UPSC\42\agent\$Label\fsr-upsc-agent.jar"
 # revision check: read zombie/GitVersion.class constant-pool ASCII
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $z = [System.IO.Compression.ZipFile]::OpenRead($Jar)

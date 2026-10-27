@@ -2,7 +2,7 @@
 .SYNOPSIS
 Install fsr-upsc-agent.jar into the game (adds -javaagent).
 .DESCRIPTION
-Copies agent/<label>/fsr-upsc-agent.jar next to projectzomboid.jar and adds
+Copies 42/agent/<label>/fsr-upsc-agent.jar next to projectzomboid.jar and adds
 "-javaagent:fsr-upsc-agent.jar" + "--enable-native-access=ALL-UNNAMED"
 to ProjectZomboid64.json vmArgs (backs up once to *.fsrupsc-bak). <label>
 is the game build folder (42.21 / 42.22) auto-detected from the game jar's
@@ -53,7 +53,7 @@ if (-not $VersionLabel) {
 if (-not $VersionLabel) {
   throw "cannot detect the game build from $Jar - pass -VersionLabel 42.21 / 42.22"
 }
-$AgentSrc = Join-Path (Split-Path -Parent $PSScriptRoot) "agent\$VersionLabel\fsr-upsc-agent.jar"
+$AgentSrc = Join-Path (Split-Path -Parent $PSScriptRoot) "42\agent\$VersionLabel\fsr-upsc-agent.jar"
 $AgentDst = Join-Path $GameDir 'fsr-upsc-agent.jar'
 
 if ($Status) {
