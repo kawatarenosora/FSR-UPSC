@@ -66,8 +66,11 @@ $Bb = @(Get-ChildItem -LiteralPath $BbDir -Filter 'byte-buddy*.jar' | ForEach-Ob
 if ($Bb.Count -eq 0) { throw "no byte-buddy jars in $BbDir" }
 & $Javac -encoding UTF-8 -cp ($Jar + ';' + ($Bb -join ';')) -d $Out $Sources
 if ($LASTEXITCODE -ne 0) { throw 'javac failed' }
-# Keep the mod-folder copy (used by PZ JAM Launcher) in sync when present.
+# Keep the local copies in sync when present: the WIP copy under
+# Zomboid\mods and the Workshop staging copy (upload source) under
+# Zomboid\Workshop\FSR-UPSC.
 $ModJar = Join-Path $env:USERPROFILE "Zomboid\mods\FSR-UPSC\42\agent\$Label\fsr-upsc-agent.jar"
+$WsJar = Join-Path (Join-Path $env:USERPROFILE 'Zomboid\Workshop\FSR-UPSC\Contents\mods\FSR-UPSC\42\agent') "$Label\fsr-upsc-agent.jar"
 # revision check: read zombie/GitVersion.class constant-pool ASCII
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $z = [System.IO.Compression.ZipFile]::OpenRead($Jar)
@@ -120,5 +123,9 @@ if (Test-Path -LiteralPath $ModJar) {
   Write-Output "synced $ModJar"
 } else {
   Write-Output "note: mod-folder copy absent ($ModJar), skipped sync"
+}
+if (Test-Path -LiteralPath $WsJar) {
+  Copy-Item -LiteralPath $AgentJar -Destination $WsJar -Force
+  Write-Output "synced $WsJar"
 }
 Write-Output "built $AgentJar for game revision $Revision (byte-buddy unpacked: $($Bb.Count) jars)"
