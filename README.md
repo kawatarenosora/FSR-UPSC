@@ -21,8 +21,9 @@ diagnostic records are archived in `docs/DIAGNOSIS-HISTORY.md`.
 ## Layout
 
 ```
-42/                  mod body (mod.info, media/lua, media/shaders, agent jar)
-  agent/             fsr-upsc-agent.jar (build artifact)
+42/                  mod body (mod.info, media/lua, media/shaders)
+agent/               prebuilt agent jars, one folder per game build
+  42.21/ 42.22/      fsr-upsc-agent.jar (build artifacts)
 src/fsrupsc/         javaagent source (single package: fsrupsc)
 scripts/             build-agent.ps1 / install-agent.ps1 / rebrand.ps1 (one-time conversion record)
 vendor/lib/          byte-buddy 1.18.8 (unshaded)
@@ -38,14 +39,19 @@ powershell -ExecutionPolicy Bypass -File scripts\build-agent.ps1
 
 - Requires JDK 25 (auto-detected from `C:\Program Files\Java` as well)
 - Reads `zombie/GitVersion` from `<game>/projectzomboid.jar` and **aborts the build on a
-  revision mismatch**. After a game update, pass `-Revision <new hash>` (the agent also
-  waits for the same hash as a string).
-- Output: `42\agent\fsr-upsc-agent.jar` (byte-buddy unpacked into the jar; self-contained)
+  revision mismatch** (with no arguments the script targets the installed game;
+  supported builds map revision hash → output folder: `4a0e9546ec` → `42.21`,
+  `e013dbb529` → `42.22`). The agent itself also waits for the same hash as a string
+  and runs stock otherwise.
+- Output: `agent\<game build>\fsr-upsc-agent.jar` (byte-buddy unpacked into the jar;
+  self-contained). Each jar embeds `fsrupsc/build-info.properties` (`revision=<hash>`)
+  plus `Target-Revision` in its manifest, which the PZ JAM Launcher revision gate reads.
 
 ## Install / Uninstall
 
 Quit the game first. **Do not run another render-scale agent mod at the same time**
-(double-patch conflict).
+(double-patch conflict). The install script auto-detects the installed game build and
+copies the matching `agent\<game build>\fsr-upsc-agent.jar`.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1            # attach
