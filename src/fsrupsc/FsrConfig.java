@@ -4,7 +4,8 @@ import fsrupsc.FsrSettings;
 
 /** Minimal kill-switches. Values read from FsrSettings. */
 public final class FsrConfig {
-    public static final String REVISION = "4a0e9546ec";
+    /** Game revision this jar targets (see fsrupsc.AgentRev). */
+    public static final String REVISION = AgentRev.REVISION;
 
     // upscaler: off | bicubic | fsr1 | fsr2 | fsr3
     public static String getUpscaler() { return FsrSettings.get().upscaler; }

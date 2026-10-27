@@ -55,6 +55,8 @@ function Resolve-JdkTool([string]$tool) {
 $Javac = Resolve-JdkTool 'javac'
 $JarTool = Resolve-JdkTool 'jar'
 $Root = Split-Path -Parent $PSScriptRoot
+# The agent's own revision check reads fsrupsc/build-info.properties (below)
+# at runtime via fsrupsc.AgentRev; no constants to stamp in the source.
 $Out = Join-Path $Root 'build\agent-classes'
 $AgentDir = Join-Path $Root "42\agent\$Label"
 $AgentJar = Join-Path $AgentDir 'fsr-upsc-agent.jar'
@@ -82,7 +84,12 @@ try {
 } finally { $z.Dispose() }
 $m = [regex]::Match($txt, '\b[0-9a-f]{10}\b')
 if (-not $m.Success) { throw 'could not read game revision' }
-if ($m.Value -ne $Revision) { throw "game is $($m.Value), expected $Revision (pass -Revision to override)" }
+if ($m.Value -ne $Revision) {
+  # Cross-build jar (e.g. rebuilding the 42.21 jar once the disk has moved to
+  # 42.22). Safe: the target revision is passed explicitly, goes into
+  # build-info.properties and the agent/launcher gates on it everywhere.
+  Write-Warning "game is $($m.Value), building -Revision $Revision (cross-build)"
+}
 if (Test-Path -LiteralPath $AgentJar) { Remove-Item -LiteralPath $AgentJar -Force }
 # Unpack byte-buddy into the classes dir so the agent jar is self-contained
 # (unshaded net.bytebuddy: Z-UET shades to zuet.shade, so no conflict).

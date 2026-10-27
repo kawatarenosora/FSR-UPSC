@@ -11,8 +11,11 @@ import fsrupsc.RenderScale;
  * redefine/retransform. Mismatched game revision => register nothing.
  */
 public final class FsrAgent {
-    // NOTE: build/compare by jar revision hash, never by "42.21" label.
-    static final String TARGET_REVISION = "4a0e9546ec";
+    // NOTE: build/compare by jar revision hash, never by "42.x" label.
+    // TARGET_REVISION is read at runtime from this jar's
+    // fsrupsc/build-info.properties (see fsrupsc.AgentRev), so one source
+    // tree builds any target revision without touching constants here.
+    static final String TARGET_REVISION = AgentRev.REVISION;
 
     public static void premain(String args, Instrumentation inst) {
         if (!FsrTransformer.revisionMatches()) {

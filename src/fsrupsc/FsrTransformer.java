@@ -858,7 +858,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
         return ok;
     }
 
-    /** Compare zombie/GitVersion REVISION constant against 4a0e9546ec. */
+    /** Compare zombie/GitVersion REVISION constant against the built target (BuildRev). */
     static boolean revisionMatches() {
         try {
             byte[] bytes;
