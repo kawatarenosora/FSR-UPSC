@@ -20,8 +20,27 @@ import net.bytebuddy.utility.JavaModule;
  */
 public final class FsrTransformer {
 
+    /**
+     * Late-load mode (ZombieBuddy entry): retransform classes that are
+     * already loaded when install runs. Every hook in this agent is a
+     * code-only rewrite (advice inline or member substitution), so
+     * retransformation is legal; the flag changes only when hooks can fire,
+     * never the rewritten bytes.
+     */
+    private static boolean lateMode;
+
     /** Install all hook transformers. Failures are per-target and logged. */
     public static void install(Instrumentation inst) {
+        install(inst, false);
+    }
+
+    /**
+     * Install all hook transformers. With {@code late} set, also retransform
+     * matching classes that are loaded already; without it (javaagent
+     * premain) nothing is loaded yet and the default strategy applies.
+     */
+    public static void install(Instrumentation inst, boolean late) {
+        lateMode = late;
         StringBuilder done = new StringBuilder();
         if (FsrHooks.wantLoop()
                 && patch(inst, "zombie.core.opengl.RenderThread", "renderLoop", RenderLoopEnter.class)) {
@@ -94,8 +113,7 @@ public final class FsrTransformer {
     /** Single enter-advice transform. */
     static boolean patch(Instrumentation inst, String type, String method, Class<?> advice) {
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named(type))
                     .transform((b, td, cl, m, pd) -> b.visit(
                             Advice.to(advice).on(ElementMatchers.named(method))))
@@ -125,8 +143,7 @@ public final class FsrTransformer {
     static boolean patchFboRender(Instrumentation inst) {
         try {
             final boolean reticle = ReticleHold.enabled();
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("zombie.core.textures.MultiTextureFBO2"))
                     .transform((b, td, cl, mod, pd) -> {
                         var v = b.visit(Advice.to(FboRenderEnter.class).on(
@@ -163,8 +180,7 @@ public final class FsrTransformer {
      */
     static boolean patchFboBegin(Instrumentation inst) {
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("zombie.core.textures.TextureFBO"))
                     .transform((b, td, cl, mod, pd) -> {
                         var v = b
@@ -206,8 +222,7 @@ public final class FsrTransformer {
      */
     static boolean patchCameraScreenSize(Instrumentation inst) {
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("zombie.iso.IsoCamera"))
                     .transform((b, td, cl, mod, pd) -> b
                             .visit(Advice.to(IsoCameraScreenSize.class).on(
@@ -262,8 +277,7 @@ public final class FsrTransformer {
      */
     static boolean patchConeSuppression(Instrumentation inst) {
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("zombie.iso.IsoWorld"))
                     .transform((b, td, cl, mod, pd) -> b
                             .visit(Advice.to(ConeSuppress.class).on(
@@ -322,8 +336,7 @@ public final class FsrTransformer {
                     ElementMatchers.<net.bytebuddy.description.method.MethodDescription>
                             named("getHeight").and(ElementMatchers.takesNoArguments())
                             .and(ElementMatchers.isDeclaredBy(texFbo));
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named(
                             "zombie.vispoly.VisibilityPolygon2$Drawer"))
                     .transform((b, td, cl, mod, pd) -> b
@@ -400,8 +413,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
                     .and(ElementMatchers.takesArguments(int.class))
                     .and(ElementMatchers.returns(int.class));
 
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named(
                             "zombie.iso.fboRenderChunk.FBORenderChunkManager"))
                     .transform((b, td, cl, mod, pd) -> b
@@ -492,8 +504,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
 
     static boolean patchConeHold(Instrumentation inst) {
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("zombie.viewCone.ViewConeTextureFBO"))
                     .transform((b, td, cl, mod, pd) -> b
                             .visit(Advice.to(ConeViewportHold.class).on(
@@ -552,8 +563,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
                     .and(ElementMatchers.takesArguments(int.class))
                     .and(ElementMatchers.returns(int.class));
 
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("zombie.iso.IsoWorld"))
                     .transform((b, td, cl, mod, pd) -> b
                             .visit(net.bytebuddy.asm.MemberSubstitution.relaxed()
@@ -636,8 +646,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
                                              net.bytebuddy.description.method.MethodDescription sx,
                                              net.bytebuddy.description.method.MethodDescription sy) {
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named(typeName))
                     .transform((b, td, cl, mod, pd) -> b
                             .visit(net.bytebuddy.asm.MemberSubstitution.relaxed()
@@ -660,8 +669,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
 
     static boolean patchConeViewport(Instrumentation inst) {
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("zombie.vispoly.VisibilityPolygon2"))
                     .transform((b, td, cl, mod, pd) -> b
                             .visit(Advice.to(ConeViewportPass.class).on(
@@ -686,8 +694,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
      */
     static boolean patchComposite(Instrumentation inst) {
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("zombie.core.textures.TextureFBO"))
                     .transform((b, td, cl, mod, pd) -> b
                             .visit(Advice.to(FboTextureGetter.class).on(
@@ -710,8 +717,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
      */
     static boolean patchFboAlloc(Instrumentation inst) {
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("zombie.core.textures.MultiTextureFBO2"))
                     .transform((b, td, cl, mod, pd) -> b
                             .visit(Advice.to(MtfboCreateEnter.class).on(
@@ -734,8 +740,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
      */
     static boolean patchDrawModel(Instrumentation inst) {
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("zombie.core.textures.TextureDraw"))
                     .transform((b, td, cl, mod, pd) -> {
                         var v = b
@@ -772,8 +777,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
     static boolean patchViewport(Instrumentation inst) {
         boolean ok = false;
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("org.lwjgl.opengl.GL11"))
                     .transform((b, td, cl, mod, pd) -> {
                         var v = b.visit(
@@ -789,8 +793,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
             FsrHooks.hookFailed("failed GL11.glViewport: ", t);
         }
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("zombie.core.sprite.GenericSpriteRenderState"))
                     .transform((b, td, cl, mod, pd) -> {
                         var v = b.visit(
@@ -806,8 +809,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
             FsrHooks.hookFailed("failed GenericSpriteRenderState.glViewport: ", t);
         }
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("zombie.core.SpriteRenderer"))
                     .transform((b, td, cl, mod, pd) -> {
                         var v = b.visit(
@@ -828,8 +830,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
             FsrHooks.hookFailed("failed TextureDraw.glViewport: ", t);
         }
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("zombie.core.SpriteRenderer"))
                     .transform((b, td, cl, mod, pd) -> b.visit(
                             Advice.to(StartFrameExit.class).on(
@@ -842,8 +843,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
             FsrHooks.hookFailed("failed SpriteRenderer.glDoStartFrame: ", t);
         }
         try {
-            new AgentBuilder.Default()
-                    .with(new LogListener())
+            base()
                     .type(ElementMatchers.named("zombie.core.SpriteRenderer"))
                     .transform((b, td, cl, mod, pd) -> b.visit(
                             Advice.to(EndFrameExit.class).on(
@@ -858,7 +858,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
         return ok;
     }
 
-    /** Compare zombie/GitVersion REVISION constant against the built target (BuildRev). */
+    /** Compare zombie/GitVersion REVISION constant against the built target (AgentRev). */
     static boolean revisionMatches() {
         try {
             byte[] bytes;
@@ -879,6 +879,19 @@ static boolean patchConeEndFrame(Instrumentation inst) {
         }
     }
 
+    /** Common AgentBuilder head: logging listener, plus the retransformation
+     * strategy in late mode (ZombieBuddy entry) so classes loaded before us
+     * are picked up. Redefinition errors are reported per batch without
+     * failing the remaining installs. */
+    private static AgentBuilder base() {
+        AgentBuilder b = new AgentBuilder.Default().with(new LogListener());
+        if (lateMode) {
+            b = b.with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
+                    .with(new RedefLog());
+        }
+        return b;
+    }
+
     static final class LogListener extends AgentBuilder.Listener.Adapter {
         @Override
         public void onTransformation(TypeDescription td, ClassLoader cl,
@@ -890,6 +903,34 @@ static boolean patchConeEndFrame(Instrumentation inst) {
         public void onError(String name, ClassLoader cl,
                 JavaModule m, boolean loaded, Throwable t) {
             FsrHooks.hookFailed("failed " + name + ": ", t);
+        }
+    }
+
+    /** Retransform pass: report batch failures, keep going. */
+    static final class RedefLog implements AgentBuilder.RedefinitionStrategy.Listener {
+        @Override
+        public void onBatch(
+                int index, java.util.List<Class<?>> batch,
+                java.util.List<Class<?>> types) {
+        }
+
+        @Override
+        public Iterable<? extends java.util.List<Class<?>>> onError(
+                int index, java.util.List<Class<?>> batch,
+                Throwable throwable, java.util.List<Class<?>> types) {
+            FsrHooks.hookFailed("retransform batch " + index + ": ", throwable);
+            return java.util.Collections.emptyList();
+        }
+
+        @Override
+        public void onComplete(int index, java.util.List<Class<?>> batch,
+                java.util.Map<java.util.List<Class<?>>, Throwable> causes) {
+            if (causes != null) {
+                for (java.util.Map.Entry<java.util.List<Class<?>>, Throwable> e : causes.entrySet()) {
+                    FsrHooks.hookFailed("retransform "
+                            + e.getKey().size() + " type(s): ", e.getValue());
+                }
+            }
         }
     }
 

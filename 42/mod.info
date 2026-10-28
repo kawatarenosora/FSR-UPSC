@@ -1,21 +1,14 @@
-name=FSR-UPSC (javaagent)
-id=FSR_UPSC
+name=FSR-UPSC (ZombieBuddy)
+id=FSR_UPSC_ZB
 modversion=1.1.0
 versionMin=42.21
 author=kawatarenosora
-description=AMD FidelityFX (FSR) upscaling for Project Zomboid B42 via a javaagent. World pass renders at a reduced resolution (FidelityFX quality presets) and is resolved with FSR 1 EASU+RCAS, or FSR 2 / FSR 3.1 temporal upscaling (GL compute) with injected sub-pixel camera jitter, depth chain, auto-reactive masks and entity motion vectors, plus optional software frame generation on the present path (FsrControl.fsr2FgTest). Falls back to FSR 1 automatically on any compute fault. Install the agent jar first, see agent/README.txt (inside this mod folder). Built for B42.21 (revision 4a0e9546ec) and B42.22 (revision e013dbb529); any other revision runs stock.
+require=\ZombieBuddy
+javaJarFile=media/java/fsr-upsc-agent.jar
+javaPkgName=fsrupsc
+description=AMD FidelityFX (FSR) upscaling for Project Zomboid B42, ZombieBuddy edition: no -javaagent launch option is needed, the ZombieBuddy mod loads the agent jar (release 2.x or BETA 3.x both work). World pass renders at a reduced resolution (FidelityFX quality presets) and is resolved with FSR 1 EASU+RCAS, or FSR 2 / FSR 3.1 temporal upscaling (GL compute) with injected sub-pixel camera jitter, depth chain, auto-reactive masks and entity motion vectors, plus optional software frame generation on the present path (FsrControl.fsr2FgTest). Falls back to FSR 1 automatically on any compute fault. First launch shows a ZombieBuddy approval dialog for the agent jar, choose persist. Built for B42.22 (revision e013dbb529); any other revision runs stock until the mod is rebuilt for it. Do not enable together with the javaagent edition (mod id FSR_UPSC) - one of the two must stay off.
 
-Game-ready agent jars live in this mod folder: agent\<game build>\fsr-upsc-agent.jar (agent\42.21 / agent\42.22).
-
-Build it with: ..\..\scripts\build-agent.ps1
-  - compiles src\fsrupsc against the game jar
-  - checks the game revision hash from zombie/GitVersion (NOT "42.x")
-  - outputs: .\agent\<label>\fsr-upsc-agent.jar (label derived from the hash)
-
-Install it with: ..\..\scripts\install-agent.ps1
-  - copies the build-matched fsr-upsc-agent.jar next to projectzomboid.jar
-  - adds "-javaagent:fsr-upsc-agent.jar" + "--enable-native-access=ALL-UNNAMED"
-    to ProjectZomboid64.json (backs it up once)
-  - no extra properties needed: hooks default to all, downscale defaults ON
-  - Pure GL (fsr2/fsr3 compute + software frame generation);
-    no native bridge is required or shipped
+The agent jar ships inside this mod folder: media\java\fsr-upsc-agent.jar.
+ZombieBuddy loads it from mod.info (javaJarFile/javaPkgName) on game start;
+hook groups, downscale and upscaler settings behave exactly like the
+javaagent edition (ModOptions.ini / fsrupsc.FsrControl from Lua).
