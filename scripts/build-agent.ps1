@@ -150,19 +150,19 @@ $Manifest = Join-Path ([IO.Path]::GetTempPath()) 'fsr-upsc-manifest.txt'
 if (Test-Path -LiteralPath $AgentJar) { Remove-Item -LiteralPath $AgentJar -Force }
 & $JarTool --create --file $AgentJar --manifest $Manifest -C $Out .
 Remove-Item -LiteralPath $Manifest -Force -ErrorAction SilentlyContinue
-# Keep the local copies in sync when present: the WIP test mod under
-# Zomboid\mods\FSR-UPSC and the (future) Workshop staging copy under
-# Zomboid\Workshop\FSR-UPSC.
-$ModJar = Join-Path $env:USERPROFILE "Zomboid\mods\FSR-UPSC\42\media\java\fsr-upsc-agent.jar"
-$WsJar = Join-Path $env:USERPROFILE "Zomboid\Workshop\FSR-UPSC\Contents\mods\FSR-UPSC\42\media\java\fsr-upsc-agent.jar"
-if (Test-Path -LiteralPath $ModJar) {
-  Copy-Item -LiteralPath $AgentJar -Destination $ModJar -Force
-  Write-Output "synced $ModJar"
+# Keep the Workshop staging copy in sync when present: copy the whole 42\
+# tree (mod.info, media, agent), so a rebuild also ships lua / mod.info
+# changes, not just the jar. Additive (no /PURGE): files deleted from the
+# repo linger in staging until removed by hand. The old WIP copy under
+# Zomboid\mods\FSR-UPSC is retired - the Workshop staging folder is the
+# single deploy target now.
+$Ws42 = Join-Path $env:USERPROFILE "Zomboid\Workshop\FSR-UPSC\Contents\mods\FSR-UPSC\42"
+if (Test-Path -LiteralPath $Ws42) {
+  robocopy (Join-Path $Root '42') $Ws42 /E /NJH /NJS /NFL /NDL /NP | Out-Null
+  $rc = $LASTEXITCODE
+  if ($rc -ge 8) { throw "robocopy to staging failed (exit $rc)" }
+  Write-Output "synced $Ws42"
 } else {
-  Write-Output "note: WIP mod copy absent ($ModJar), skipped sync"
-}
-if (Test-Path -LiteralPath $WsJar) {
-  Copy-Item -LiteralPath $AgentJar -Destination $WsJar -Force
-  Write-Output "synced $WsJar"
+  Write-Output "note: Workshop staging copy absent ($Ws42), skipped sync"
 }
 Write-Output "built $AgentJar for game revision $Revision (byte-buddy bundled; javaagent + ZombieBuddy in one jar)"

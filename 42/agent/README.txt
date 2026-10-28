@@ -23,3 +23,13 @@ Rollback flow (42.22 -> 42.21), javaagent mode:
 The script also auto-detects the installed game build and picks the matching
 jar without -VersionLabel. Going back to 42.22: run the script again (no
 arguments) or just enable the mod with ZombieBuddy.
+
+No scripts folder available (plain Workshop copy)? Copy the jar anywhere
+permanent (e.g. C:\PZAgents) and add two lines to the vmArgs array in
+ProjectZomboid64.json (game folder; back the file up first):
+
+  "-javaagent:C:/PZAgents/fsr-upsc-agent.jar",
+  "--enable-native-access=ALL-UNNAMED"
+
+Or point PZ-JAM-Launcher at the jar, which manages the same two options.
+The same two lines work for the 42.21 jar - just change the path.
