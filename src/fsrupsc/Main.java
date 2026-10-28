@@ -5,7 +5,7 @@ import java.lang.instrument.Instrumentation;
 import java.util.jar.JarFile;
 
 /**
- * ZombieBuddy edition entry shim (this branch only).
+ * ZombieBuddy loading-mode entry (shim).
  *
  * <p>ZombieBuddy loads this mod's jar and runs {@code fsrupsc.Main#main} in
  * its own transformed-jar loader. That loader serves neither the jar's
@@ -15,8 +15,12 @@ import java.util.jar.JarFile;
  * dumb shim: locate the jar file, append it to the system classloader
  * search, then re-enter the real boot ({@link ZbEntry}) through the SYSTEM
  * classloader -- every fsrupsc class involved in state and advice exists in
- * exactly one copy there. The manifest carries no Premain-Class; this build
- * is ZombieBuddy-only.
+ * exactly one copy there.
+ *
+ * <p>The same jar also boots via {@code -javaagent} ({@link FsrAgent#premain},
+ * load-time transform). ZbEntry skips when that mode is detected, so both
+ * loading paths coexist in one build; this shim only ever runs when
+ * ZombieBuddy is present.
  */
 public final class Main {
 

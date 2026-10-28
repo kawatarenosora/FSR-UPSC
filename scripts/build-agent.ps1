@@ -1,17 +1,23 @@
 <#
 .SYNOPSIS
-Build the ZombieBuddy-edition fsr-upsc-agent.jar against the installed game revision.
+Build the unified fsr-upsc-agent.jar against the installed game revision.
 .DESCRIPTION
 Compiles src/fsrupsc with javac (JDK 25+) against <game>/projectzomboid.jar,
 verifies zombie/GitVersion REVISION and drops 42/media/java/fsr-upsc-agent.jar.
 
-ZombieBuddy edition specifics:
-- The jar does NOT bundle byte-buddy. It compiles against vendor/lib
-  byte-buddy 1.18.8 (exactly what ZombieBuddy 2.x ships) and resolves
-  byte-buddy from ZombieBuddy's own agent jar at runtime (ZombieBuddy 3.x
-  ships 1.18.14; same 1.18.x API family). One jar works on both editions.
-- The manifest has no Premain-Class on purpose: this jar is loaded by
-  ZombieBuddy from mod.info (fsrupsc.Main), never as a -javaagent.
+One jar, two loading modes:
+- javaagent: -javaagent:<this jar> boots fsrupsc.FsrAgent.premain (load-time
+  transform). Requires the manifest's Premain-Class and a bundled byte-buddy
+  (the jar must be self-contained; no ZombieBuddy present to resolve from).
+- ZombieBuddy java mod: ZB reads mod.info (javaJarFile/javaPkgName) and runs
+  fsrupsc.Main, which boots fsrupsc.ZbEntry in the system classloader and
+  retransforms already-loaded classes via ZB's own instrumentation. ZB ignores
+  the manifest's agent attributes, and at runtime byte-buddy resolves from
+  ZB's jar (classpath-first), so the bundled copy is only a fallback there.
+- Both at once is safe: FsrAgent.premain and ZbEntry set/check the
+  "fsrupsc.armed" system property, and ZbEntry additionally skips when
+  -javaagent is visible in the JVM input arguments.
+
 - One jar per game revision: the target revision is generated as
   fsrupsc/BuildRev.java (a compile-time constant; jar resources are NOT
   readable under ZombieBuddy's transformed-jar loader) and also written to
@@ -80,9 +86,10 @@ final class BuildRev {
 [IO.File]::WriteAllText((Join-Path $GenDir 'BuildRev.java'), $Gen, (New-Object Text.ASCIIEncoding))
 Remove-Item -Recurse -Force $Out -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
-# Compile against the game jar + vendor byte-buddy (1.18.8). At runtime
-# byte-buddy resolves from ZombieBuddy's jar; compiling against the 2.x
-# version keeps the API subset both editions serve.
+# Compile against the game jar + vendor byte-buddy (1.18.8). The same jar
+# runs as a -javaagent (bundled copy used) and as a ZombieBuddy java mod
+# (ZB's own 1.18.x copy wins on the classpath); the 1.18.x API subset here
+# is what both contexts serve.
 $BbDir = Join-Path $Root 'vendor\lib'
 $Bb = @(Get-ChildItem -LiteralPath $BbDir -Filter 'byte-buddy*.jar' | ForEach-Object { $_.FullName })
 if ($Bb.Count -eq 0) { throw "no byte-buddy jars in $BbDir" }
@@ -111,13 +118,31 @@ if ($m.Value -ne $Revision) {
 # Launcher greps it); the agent itself reads the BuildRev constant instead.
 Set-Content -LiteralPath (Join-Path $Out 'fsrupsc\build-info.properties') `
   -Value "revision=$Revision" -Encoding ASCII
-# NO Premain-Class on purpose: ZombieBuddy loads this jar from mod.info and
-# runs fsrupsc.Main. Without the attribute the jar cannot be (mis)used as a
-# -javaagent, which would fail anyway (byte-buddy is not bundled).
+# Unpack byte-buddy into the classes dir so the agent jar is self-contained
+# for the -javaagent mode (no ZombieBuddy present to resolve byte-buddy from).
+# In the ZombieBuddy mode ZB's jar sits earlier on the classpath, so its own
+# copy (1.18.x) keeps winning and this bundled copy stays a harmless fallback.
+Push-Location -LiteralPath $Out
+try {
+  foreach ($b in $Bb) {
+    & $JarTool --extract --file $b
+    if ($LASTEXITCODE -ne 0) { throw "jar extract failed: $b" }
+  }
+} finally {
+  Pop-Location
+}
+# Premain-Class makes the same jar bootable via -javaagent (the JVM aborts at
+# startup without it). ZombieBuddy loads the jar as a plain java mod and
+# ignores every agent manifest attribute, so both modes share one build.
+# Can-Retransform/Can-Redefine keep late attaches and retransform passes
+# possible in any loading context.
 $Manifest = Join-Path ([IO.Path]::GetTempPath()) 'fsr-upsc-manifest.txt'
 @(
   'Manifest-Version: 1.0',
-  'Implementation-Title: fsr-upsc-agent-zb',
+  'Premain-Class: fsrupsc.FsrAgent',
+  'Can-Redefine-Classes: true',
+  'Can-Retransform-Classes: true',
+  'Implementation-Title: fsr-upsc-agent',
   "Implementation-Version: $Revision",
   "Target-Revision: $Revision",
   ''
@@ -126,10 +151,10 @@ if (Test-Path -LiteralPath $AgentJar) { Remove-Item -LiteralPath $AgentJar -Forc
 & $JarTool --create --file $AgentJar --manifest $Manifest -C $Out .
 Remove-Item -LiteralPath $Manifest -Force -ErrorAction SilentlyContinue
 # Keep the local copies in sync when present: the WIP test mod under
-# Zomboid\mods\FSR-UPSC-ZB and the (future) Workshop staging copy under
-# Zomboid\Workshop\FSR-UPSC-ZB.
-$ModJar = Join-Path $env:USERPROFILE "Zomboid\mods\FSR-UPSC-ZB\42\media\java\fsr-upsc-agent.jar"
-$WsJar = Join-Path $env:USERPROFILE "Zomboid\Workshop\FSR-UPSC-ZB\Contents\mods\FSR-UPSC\42\media\java\fsr-upsc-agent.jar"
+# Zomboid\mods\FSR-UPSC and the (future) Workshop staging copy under
+# Zomboid\Workshop\FSR-UPSC.
+$ModJar = Join-Path $env:USERPROFILE "Zomboid\mods\FSR-UPSC\42\media\java\fsr-upsc-agent.jar"
+$WsJar = Join-Path $env:USERPROFILE "Zomboid\Workshop\FSR-UPSC\Contents\mods\FSR-UPSC\42\media\java\fsr-upsc-agent.jar"
 if (Test-Path -LiteralPath $ModJar) {
   Copy-Item -LiteralPath $AgentJar -Destination $ModJar -Force
   Write-Output "synced $ModJar"
@@ -140,4 +165,4 @@ if (Test-Path -LiteralPath $WsJar) {
   Copy-Item -LiteralPath $AgentJar -Destination $WsJar -Force
   Write-Output "synced $WsJar"
 }
-Write-Output "built $AgentJar for game revision $Revision (byte-buddy resolved from ZombieBuddy, not bundled)"
+Write-Output "built $AgentJar for game revision $Revision (byte-buddy bundled; javaagent + ZombieBuddy in one jar)"

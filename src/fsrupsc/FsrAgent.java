@@ -18,6 +18,13 @@ public final class FsrAgent {
     static final String TARGET_REVISION = AgentRev.REVISION;
 
     public static void premain(String args, Instrumentation inst) {
+        // One armed install per JVM: covers listing this jar twice on the
+        // -javaagent command line and the ZombieBuddy java-mod entry of the
+        // same jar (ZbEntry checks the same marker).
+        if ("1".equals(System.getProperty("fsrupsc.armed"))) {
+            System.out.println("[fsr-upsc] already armed in this JVM, premain skipped");
+            return;
+        }
         if (!FsrTransformer.revisionMatches()) {
             System.out.println("[fsr-upsc] revision mismatch, running stock (no transform)");
             return;
@@ -37,6 +44,7 @@ public final class FsrAgent {
         // nothing at all. Applying the restore after install keeps the
         // first-ever load of Display inside an armed transformer.
         FsrTransformer.install(inst);
+        System.setProperty("fsrupsc.armed", "1");
 
         // FG insert style / pacing from ModOptions.ini/settings (pure static
         // toggles, no GL at premain); FgPresent flips them again on live

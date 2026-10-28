@@ -23,11 +23,21 @@ public final class ZbEntry {
     }
 
     private static void run0(Instrumentation inst, File jar) {
-        // The -javaagent edition (master branch mod, id FSR_UPSC) must not be
-        // active at the same time: two transformers would apply the hooks
-        // twice (double presents, double pacing). Its -javaagent line is
-        // visible in the JVM's input arguments, which is version-proof: older
-        // published builds of that edition predate any marker we could set.
+        // One armed install per JVM. The "fsrupsc.armed" marker is set by
+        // FsrAgent.premain (the -javaagent mode) and by us after a successful
+        // install; a second copy of this mod on ZombieBuddy's java mod list
+        // would otherwise register the whole transformer set twice (double
+        // presents, double pacing). The -javaagent check below is kept as the
+        // version-proof backstop: older published javaagent builds predate
+        // the marker.
+        if ("1".equals(System.getProperty("fsrupsc.armed"))) {
+            System.out.println("[fsr-upsc] already armed in this JVM, zb entry skipped");
+            return;
+        }
+        // The -javaagent launch mode must not be active at the same time: two
+        // transformers would apply the hooks twice. Its -javaagent line is
+        // visible in the JVM's input arguments, which catches builds that
+        // never set the marker.
         for (String a : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
             if (a.contains("javaagent") && a.contains("fsr-upsc-agent")) {
                 System.out.println("[fsr-upsc] -javaagent edition detected, zb entry skipped");
@@ -55,6 +65,7 @@ public final class ZbEntry {
         FsrTransformer.install(inst, true, locator);
         try { FgPresent.setTest(FsrConfig.FG_TEST); } catch (Throwable ignored) {}
         try { FgPresent.setPace(FsrConfig.FG_PACE); } catch (Throwable ignored) {}
+        System.setProperty("fsrupsc.armed", "1");
 
         // If Lua init already ran before ZombieBuddy loaded us, the
         // LuaManager$Exposer.exposeAll advice missed the current env; register

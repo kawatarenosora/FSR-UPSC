@@ -1,15 +1,15 @@
-name=FSR-UPSC (ZombieBuddy)
-id=FSR_UPSC_ZB
+name=FSR-UPSC
+id=FSR_UPSC
 modversion=1.1.0
 versionMin=42.22
 versionMax=42.22
 author=kawatarenosora
-require=\ZombieBuddy
 javaJarFile=media/java/fsr-upsc-agent.jar
 javaPkgName=fsrupsc
-description=AMD FidelityFX (FSR) upscaling for Project Zomboid B42, ZombieBuddy edition: no -javaagent launch option is needed, the ZombieBuddy mod loads the agent jar (release 2.x or BETA 3.x both work). World pass renders at a reduced resolution (FidelityFX quality presets) and is resolved with FSR 1 EASU+RCAS, or FSR 2 / FSR 3.1 temporal upscaling (GL compute) with injected sub-pixel camera jitter, depth chain, auto-reactive masks and entity motion vectors, plus optional software frame generation on the present path (FsrControl.fsr2FgTest). Falls back to FSR 1 automatically on any compute fault. First launch shows a ZombieBuddy approval dialog for the agent jar, choose persist. Built for B42.22 (revision e013dbb529) only: the mod list version gate (versionMin/versionMax) blocks enabling on other builds, and a same-label hotfix would run stock instead of transforming. Do not enable together with the javaagent edition (mod id FSR_UPSC) - one of the two must stay off.
+description=AMD FidelityFX (FSR) upscaling for Project Zomboid B42, one mod with two loading modes: EITHER add -javaagent pointing at this mod's media\java\fsr-upsc-agent.jar to the launch options (load-time agent, no extra mod needed), OR just keep ZombieBuddy (release 2.x or BETA 3.x) installed and enable this mod - ZombieBuddy loads the same jar from mod.info and retransforms the game in place (first launch shows the ZombieBuddy approval dialog, choose persist). World pass renders at a reduced resolution (FidelityFX quality presets) and is resolved with FSR 1 EASU+RCAS, or FSR 2 / FSR 3.1 temporal upscaling (GL compute) with injected sub-pixel camera jitter, depth chain, auto-reactive masks and entity motion vectors, plus optional software frame generation on the present path (FsrControl.fsr2FgTest). Falls back to FSR 1 automatically on any compute fault. Running both modes at once is safe: the second entry detects the armed JVM and stands down. Built for B42.22 (revision e013dbb529) only: the mod list version gate (versionMin/versionMax) blocks enabling on other builds, and a same-label hotfix would run stock instead of transforming.
 
 The agent jar ships inside this mod folder: media\java\fsr-upsc-agent.jar.
-ZombieBuddy loads it from mod.info (javaJarFile/javaPkgName) on game start;
-hook groups, downscale and upscaler settings behave exactly like the
-javaagent edition (ModOptions.ini / fsrupsc.FsrControl from Lua).
+In the ZombieBuddy mode it is loaded from mod.info (javaJarFile/javaPkgName)
+on game start; in the javaagent mode point the launch option at the same file.
+Hook groups, downscale and upscaler settings behave identically in both modes
+(ModOptions.ini / fsrupsc.FsrControl from Lua).

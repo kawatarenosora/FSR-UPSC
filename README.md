@@ -18,14 +18,27 @@ log emit) has been removed because it is needless overhead in actual use. Only t
 settled fixes and feature toggles remain in the main body. Development-era
 diagnostic records are archived in `docs/DIAGNOSIS-HISTORY.md`.
 
+## Two loading modes, one jar
+
+The same jar (`42\media\java\fsr-upsc-agent.jar`) works in both loading modes;
+pick whichever fits the setup:
+
+| Mode | Setup | Boot path |
+|---|---|---|
+| **javaagent** | add `-javaagent:<mod folder>\42\media\java\fsr-upsc-agent.jar` to the launch options (or use `scripts\install-agent.ps1`) | JVM runs `fsrupsc.FsrAgent.premain` before any game class loads: every hook is applied at class-load time |
+| **ZombieBuddy** | keep [ZombieBuddy](https://steamcommunity.com/sharedfiles/filedetails/?id=3812624292) installed and enable this mod; no launch options | ZombieBuddy reads `javaJarFile`/`javaPkgName` from `mod.info` and runs `fsrupsc.Main`, which boots `fsrupsc.ZbEntry` through the system classloader and retransforms the already-loaded game classes with ZB's own instrumentation (ZB release 2.x and BETA 3.x both work; the first launch shows ZB's approval dialog - choose persist) |
+
+Running both at once is safe and logged: `FsrAgent.premain` arms first and sets
+the `fsrupsc.armed` marker; `ZbEntry` checks the marker (plus the `-javaagent`
+line in the JVM input arguments, which also covers older published builds) and
+stands down. Behavior, settings and Lua options are identical in both modes.
+
 ## Layout
 
 ```
-42/                  mod body (mod.info, media/lua, media/shaders, agent jar)
-  agent/             prebuilt agent jars, one folder per game build
-    42.21/ 42.22/    fsr-upsc-agent.jar (build artifacts)
-src/fsrupsc/         javaagent source (single package: fsrupsc)
-scripts/             build-agent.ps1 / install-agent.ps1 / rebrand.ps1 (one-time conversion record)
+42/                  mod body (mod.info, media/lua, media/shaders, media/java/agent jar)
+src/fsrupsc/         agent source (single package: fsrupsc)
+scripts/             build-agent.ps1 / install-agent.ps1 / gen-shaders.ps1 / rebrand.ps1
 vendor/lib/          byte-buddy 1.18.8 (unshaded)
 docs/                design documents + development diagnostic log (DIAGNOSIS-HISTORY.md)
 ```
@@ -33,25 +46,29 @@ docs/                design documents + development diagnostic log (DIAGNOSIS-HI
 ## Build
 
 ```powershell
-# Game directory and revision default to the script values (E:\...\ProjectZomboid, 4a0e9546ec)
+# Game directory and revision default to the script values (E:\...\ProjectZomboid, e013dbb529)
 powershell -ExecutionPolicy Bypass -File scripts\build-agent.ps1
 ```
 
 - Requires JDK 25 (auto-detected from `C:\Program Files\Java` as well)
-- Reads `zombie/GitVersion` from `<game>/projectzomboid.jar` and **aborts the build on a
-  revision mismatch** (with no arguments the script targets the installed game;
-  supported builds map revision hash → output folder: `4a0e9546ec` → `42.21`,
-  `e013dbb529` → `42.22`). The agent itself also waits for the same hash as a string
-  and runs stock otherwise.
-- Output: `42\agent\<game build>\fsr-upsc-agent.jar` (byte-buddy unpacked into the jar;
-  self-contained). Each jar embeds `fsrupsc/build-info.properties` (`revision=<hash>`)
-  plus `Target-Revision` in its manifest, which the PZ JAM Launcher revision gate reads.
+- Reads `zombie/GitVersion` from `<game>/projectzomboid.jar` and targets the
+  installed game's revision (pass `-Revision <hash>` to cross-build). The agent
+  itself waits for the same hash as a string and runs stock otherwise.
+- Output: `42\media\java\fsr-upsc-agent.jar` (byte-buddy unpacked into the jar;
+  self-contained for the javaagent mode). Each jar embeds
+  `fsrupsc/build-info.properties` (`revision=<hash>`) plus `Target-Revision` in
+  its manifest, which the PZ JAM Launcher revision gate reads.
 
 ## Install / Uninstall
 
-Quit the game first. **Do not run another render-scale agent mod at the same time**
-(double-patch conflict). The install script auto-detects the installed game build and
-copies the matching `42\agent\<game build>\fsr-upsc-agent.jar`.
+Quit the game first. **Do not run another render-scale agent mod at the same
+time** (double-patch conflict). Pick one of the two modes above:
+
+- **ZombieBuddy mode**: copy/subscribe the mod and enable it together with
+  ZombieBuddy in the mod list. Nothing else to configure; the jar is loaded
+  from `42\media\java\fsr-upsc-agent.jar` via mod.info.
+- **javaagent mode**: the install script auto-detects the installed game build
+  and points the launch options at the mod's agent jar.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1            # attach
