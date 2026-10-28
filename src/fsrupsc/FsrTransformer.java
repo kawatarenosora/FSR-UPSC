@@ -69,6 +69,19 @@ public final class FsrTransformer {
                 && patch(inst, "zombie.core.opengl.RenderThread", "renderLoop", RenderLoopEnter.class)) {
             done.append("RenderThread.renderLoop,");
         }
+        // renderLoop is entered once and never returns: a retransform while the
+        // loop is already running leaves the live frame on the old bytecode, so
+        // the advice there stays dead until the JVM restarts (seen in the
+        // ZombieBuddy late entry: "Transformed RenderThread" but the hook never
+        // fired, renderThread stayed null and the world-end resolve silently
+        // starved). renderStep is the per-frame call inside that loop, so its
+        // advice goes live on the very next frame. At class-load time
+        // (javaagent) both apply before the loop starts and the extra
+        // per-frame re-arm is a no-op.
+        if (FsrHooks.wantLoop()
+                && patch(inst, "zombie.core.opengl.RenderThread", "renderStep", RenderLoopEnter.class)) {
+            done.append("RenderThread.renderStep,");
+        }
         if (FsrHooks.wantInternal()
                 && patch(inst, "zombie.GameWindow", "renderInternal", RenderInternalEnter.class)) {
             done.append("GameWindow.renderInternal,");
