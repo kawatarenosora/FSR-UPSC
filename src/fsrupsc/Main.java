@@ -44,13 +44,20 @@ public final class Main {
             }
         }
 
+        // Revision gate first, then instrumentation. The gate reads the
+        // revision straight off the game's constants class -- no class-bytes
+        // scanning and no mod jar resources, both of which ZombieBuddy's
+        // transformed-jar loader hides. mod.info's versionMin/versionMax is
+        // the primary gate (mod list refuses other builds); this hash check
+        // is the hotfix insurance, since a same-label build can carry a
+        // different revision.
+        if (!zbRevMatches()) {
+            return;
+        }
+
         Instrumentation inst = zbInstrumentation();
         if (inst == null) {
             System.out.println("[fsr-upsc] ZombieBuddy instrumentation unavailable, running stock");
-            return;
-        }
-        if (!FsrTransformer.revisionMatches()) {
-            System.out.println("[fsr-upsc] revision mismatch, running stock (no transform)");
             return;
         }
 
@@ -78,6 +85,34 @@ public final class Main {
         try {
             fsrupsc.FsrLog.log(armed);
         } catch (Throwable ignored) {}
+    }
+
+    /**
+     * ZB path revision gate: compare the built target (BuildRev constant via
+     * {@link AgentRev}) against {@code zombie.GitVersion#REVISION} read
+     * reflectively. GitVersion is a tiny constants holder; loading and
+     * initializing it is side-effect free. On mismatch, print both sides so
+     * the console line alone diagnoses a build/mod pairing mistake.
+     */
+    private static boolean zbRevMatches() {
+        String game = gameRevision();
+        String target = AgentRev.REVISION;
+        if (game != null && game.equals(target)) {
+            return true;
+        }
+        System.out.println("[fsr-upsc] revision mismatch, running stock (no transform)"
+            + " target=" + (target.isEmpty() ? "<unreadable>" : target)
+            + " game=" + (game == null || game.isEmpty() ? "<unreadable>" : game));
+        return false;
+    }
+
+    private static String gameRevision() {
+        try {
+            return (String) Class.forName("zombie.GitVersion")
+                .getField("REVISION").get(null);
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     /**
