@@ -68,13 +68,29 @@ time** (double-patch conflict). Pick one of the two modes above:
   ZombieBuddy in the mod list. Nothing else to configure; the jar is loaded
   from `42\media\java\fsr-upsc-agent.jar` via mod.info.
 - **javaagent mode**: the install script auto-detects the installed game build
-  and points the launch options at the mod's agent jar.
+  and points the launch options at the matching jar.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1            # attach
 powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1 -Detach    # remove vmArgs only (for testing)
 powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1 -Uninstall # vmArgs + jar removal
 ```
+
+### Rollback (42.22 → 42.21)
+
+On a rolled-back game (Build 42.21, revision `4a0e9546ec`) the javaagent mode
+keeps working through the bundled legacy build
+`42\agent\42.21\fsr-upsc-agent.jar`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1 -VersionLabel 42.21
+```
+
+(without `-VersionLabel` the script auto-detects the installed build and picks
+the matching jar). The ZombieBuddy mode is 42.22-only: on 42.21 the mod still
+enables (`versionMin=42.21`), but its 42.22 jar's revision gate refuses to arm
+and the game runs stock - every mismatch prints one
+`revision mismatch ... target=... game=...` line to console.txt.
 
 vmArgs written by attach:
 

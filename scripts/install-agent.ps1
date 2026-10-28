@@ -2,21 +2,26 @@
 .SYNOPSIS
 Install fsr-upsc-agent.jar into the game (adds -javaagent).
 .DESCRIPTION
-Copies 42/media/java/fsr-upsc-agent.jar next to projectzomboid.jar and adds
+Copies the agent jar next to projectzomboid.jar and adds
 "-javaagent:fsr-upsc-agent.jar" + "--enable-native-access=ALL-UNNAMED"
-to ProjectZomboid64.json vmArgs (backs up once to *.fsrupsc-bak). The jar is
-revision-gated inside (build-info.properties / Target-Revision vs
-zombie.GitVersion) and runs stock on a mismatched game build, so a plain copy
-is always safe. -VersionLabel is still accepted but no longer changes the
-source path (one jar per revision, built by build-agent.ps1 into
-42\media\java).
+to ProjectZomboid64.json vmArgs (backs up once to *.fsrupsc-bak).
+
+Source jar selection (auto, override with -VersionLabel 42.21 / 42.22):
+- game 42.22 (e013dbb529): 42\media\java\fsr-upsc-agent.jar - the unified
+  build that also loads as a ZombieBuddy java mod
+- game 42.21 (4a0e9546ec): 42\agent\42.21\fsr-upsc-agent.jar - legacy
+  javaagent build for rollback players (javaagent mode only)
+
+Every jar is revision-gated inside (build-info.properties / Target-Revision
+vs zombie.GitVersion) and runs stock on a mismatched game build, so a wrong
+pick degrades to stock rendering instead of misbehaving.
 No FSR-UPSC -D properties are written by default: the hook mask defaults
 to all groups and the world-downscale master switch defaults ON inside
 the agent, so a bare -javaagent is a complete install. The optional
 switches below write properties only when you pass them.
 Game must be closed. Uninstall removes the two vmArgs + the jar.
-The same jar also loads without this script when ZombieBuddy is installed:
-enable the mod and ZB boots it as a java mod (see README, two loading modes).
+The unified jar also loads without this script when ZombieBuddy is
+installed: enable the mod and ZB boots it as a java mod (see README).
 #>
 param(
   [string]$GameDir = "E:\Program Files (x86)\Steam\steamapps\common\ProjectZomboid",
@@ -36,7 +41,38 @@ $ErrorActionPreference = 'Stop'
 $Jar = Join-Path $GameDir 'projectzomboid.jar'
 $Json = Join-Path $GameDir 'ProjectZomboid64.json'
 $Bak = "$Json.fsrupsc-bak"
-$AgentSrc = Join-Path (Split-Path -Parent $PSScriptRoot) "42\media\java\fsr-upsc-agent.jar"
+# Source selection: the unified build (media\java, currently 42.22) serves
+# both loading modes; the bundled agent\42.21 jar is the legacy javaagent
+# build for players who rolled the game back to Build 42.21. -VersionLabel
+# overrides the auto-detection (42.21 / 42.22).
+$AgentRoot = Split-Path -Parent $PSScriptRoot
+$AgentSrcLabels = @{
+  '42.21' = Join-Path $AgentRoot "42\agent\42.21\fsr-upsc-agent.jar"
+  '42.22' = Join-Path $AgentRoot "42\media\java\fsr-upsc-agent.jar"
+}
+if (-not $VersionLabel) {
+  if (Test-Path -LiteralPath $Jar) {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $z = [System.IO.Compression.ZipFile]::OpenRead($Jar)
+    try {
+      $e = $z.GetEntry('zombie/GitVersion.class')
+      if ($e) {
+        $s = $e.Open(); $ms = New-Object System.IO.MemoryStream; $s.CopyTo($ms); $s.Dispose()
+        $txt = [System.Text.Encoding]::ASCII.GetString($ms.ToArray())
+        $rev = [regex]::Match($txt, '\b[0-9a-f]{10}\b').Value
+        if ($rev -eq '4a0e9546ec') { $VersionLabel = '42.21' }
+        elseif ($rev -eq 'e013dbb529') { $VersionLabel = '42.22' }
+      }
+    } finally { $z.Dispose() }
+  }
+}
+if (-not $VersionLabel) {
+  throw "cannot detect the game build from $Jar - pass -VersionLabel 42.21 / 42.22"
+}
+if (-not $AgentSrcLabels.ContainsKey($VersionLabel)) {
+  throw "no bundled jar for $VersionLabel (supported: 42.21 / 42.22)"
+}
+$AgentSrc = $AgentSrcLabels[$VersionLabel]
 $AgentDst = Join-Path $GameDir 'fsr-upsc-agent.jar'
 
 if ($Status) {
