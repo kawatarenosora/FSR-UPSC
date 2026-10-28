@@ -7,6 +7,7 @@ import net.bytebuddy.asm.Advice;
 import net.bytebuddy.asm.MemberSubstitution;
 import net.bytebuddy.asm.MemberSubstitution.Substitution;
 import net.bytebuddy.description.type.TypeDescription;
+import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.matcher.ElementMatcher;
 import net.bytebuddy.matcher.ElementMatchers;
@@ -29,18 +30,40 @@ public final class FsrTransformer {
      */
     private static boolean lateMode;
 
+    /**
+     * Byte locator for advice weaving. Null = the advice class's own
+     * classloader (javaagent premain: resources resolve fine). The ZombieBuddy
+     * entry passes a locator over the jar file because its loader hides both
+     * resources and class bytes ("Could not locate class file").
+     */
+    private static volatile ClassFileLocator adviceLocator;
+
+    /** Advice entry point with the active byte locator. */
+    static Advice advice(Class<?> a) {
+        return Advice.to(a, adviceLocator != null
+                ? adviceLocator
+                : ClassFileLocator.ForClassLoader.of(a.getClassLoader()));
+    }
+
     /** Install all hook transformers. Failures are per-target and logged. */
     public static void install(Instrumentation inst) {
-        install(inst, false);
+        install(inst, false, null);
+    }
+
+    /** javaagent form (no custom locator; see install(inst, late, locator)). */
+    public static void install(Instrumentation inst, boolean late) {
+        install(inst, late, null);
     }
 
     /**
      * Install all hook transformers. With {@code late} set, also retransform
      * matching classes that are loaded already; without it (javaagent
      * premain) nothing is loaded yet and the default strategy applies.
+     * {@code locator} overrides where advice class bytes are read from.
      */
-    public static void install(Instrumentation inst, boolean late) {
+    public static void install(Instrumentation inst, boolean late, ClassFileLocator locator) {
         lateMode = late;
+        adviceLocator = locator;
         StringBuilder done = new StringBuilder();
         if (FsrHooks.wantLoop()
                 && patch(inst, "zombie.core.opengl.RenderThread", "renderLoop", RenderLoopEnter.class)) {
@@ -116,7 +139,7 @@ public final class FsrTransformer {
             base()
                     .type(ElementMatchers.named(type))
                     .transform((b, td, cl, m, pd) -> b.visit(
-                            Advice.to(advice).on(ElementMatchers.named(method))))
+                            advice(advice).on(ElementMatchers.named(method))))
                     .installOn(inst);
             return true;
         } catch (Throwable t) {
@@ -146,18 +169,18 @@ public final class FsrTransformer {
             base()
                     .type(ElementMatchers.named("zombie.core.textures.MultiTextureFBO2"))
                     .transform((b, td, cl, mod, pd) -> {
-                        var v = b.visit(Advice.to(FboRenderEnter.class).on(
+                        var v = b.visit(advice(FboRenderEnter.class).on(
                                         ElementMatchers.named("render")
                                                 .and(ElementMatchers.not(ElementMatchers.isStatic()))))
-                                .visit(Advice.to(FboRenderExit.class).on(
+                                .visit(advice(FboRenderExit.class).on(
                                         ElementMatchers.named("render")
                                                 .and(ElementMatchers.not(ElementMatchers.isStatic()))));
                         if (reticle) {
-                            v = v.visit(Advice.to(ReticleHold.class).on(
+                            v = v.visit(advice(ReticleHold.class).on(
                                             ElementMatchers.named("renderCursor")
                                                     .and(ElementMatchers.takesArguments(
                                                             zombie.characters.IsoPlayer.class))))
-                                    .visit(Advice.to(ReticleHold.End.class).on(
+                                    .visit(advice(ReticleHold.End.class).on(
                                             ElementMatchers.named("renderCursor")
                                                     .and(ElementMatchers.takesArguments(
                                                             zombie.characters.IsoPlayer.class))));
@@ -184,9 +207,9 @@ public final class FsrTransformer {
                     .type(ElementMatchers.named("zombie.core.textures.TextureFBO"))
                     .transform((b, td, cl, mod, pd) -> {
                         var v = b
-                                .visit(Advice.to(FboBeginEnter.class).on(
+                                .visit(advice(FboBeginEnter.class).on(
                                         ElementMatchers.named("startDrawing")))
-                                .visit(Advice.to(FboEndEnter.class).on(
+                                .visit(advice(FboEndEnter.class).on(
                                         ElementMatchers.named("endDrawing")));
                         return v;
                     })
@@ -225,11 +248,11 @@ public final class FsrTransformer {
             base()
                     .type(ElementMatchers.named("zombie.iso.IsoCamera"))
                     .transform((b, td, cl, mod, pd) -> b
-                            .visit(Advice.to(IsoCameraScreenSize.class).on(
+                            .visit(advice(IsoCameraScreenSize.class).on(
                                     ElementMatchers.named("getScreenWidth")
                                             .and(ElementMatchers.takesArguments(1))
                                             .and(ElementMatchers.isStatic())))
-                            .visit(Advice.to(IsoCameraScreenHeight.class).on(
+                            .visit(advice(IsoCameraScreenHeight.class).on(
                                     ElementMatchers.named("getScreenHeight")
                                             .and(ElementMatchers.takesArguments(1))
                                             .and(ElementMatchers.isStatic()))))
@@ -280,12 +303,12 @@ public final class FsrTransformer {
             base()
                     .type(ElementMatchers.named("zombie.iso.IsoWorld"))
                     .transform((b, td, cl, mod, pd) -> b
-                            .visit(Advice.to(ConeSuppress.class).on(
+                            .visit(advice(ConeSuppress.class).on(
                                     ElementMatchers.named("DrawPlayerCone")
                                             .and(ElementMatchers.takesNoArguments())
                                             .and(ElementMatchers.not(
                                                     ElementMatchers.isStatic()))))
-                            .visit(Advice.to(ConeSuppress.Second.class).on(
+                            .visit(advice(ConeSuppress.Second.class).on(
                                     ElementMatchers.named("DrawPlayerCone2")
                                             .and(ElementMatchers.takesNoArguments())
                                             .and(ElementMatchers.not(
@@ -293,7 +316,7 @@ public final class FsrTransformer {
                     .type(ElementMatchers.named(
                             "zombie.viewCone.ViewConeTextureFBO"))
                     .transform((b, td, cl, mod, pd) -> b
-                            .visit(Advice.to(ConeClear.class).on(
+                            .visit(advice(ConeClear.class).on(
                                     ElementMatchers.named("startDrawing")
                                             .and(ElementMatchers.takesNoArguments())
                                             .and(ElementMatchers.not(
@@ -507,10 +530,10 @@ static boolean patchConeEndFrame(Instrumentation inst) {
             base()
                     .type(ElementMatchers.named("zombie.viewCone.ViewConeTextureFBO"))
                     .transform((b, td, cl, mod, pd) -> b
-                            .visit(Advice.to(ConeViewportHold.class).on(
+                            .visit(advice(ConeViewportHold.class).on(
                                     ElementMatchers.named("startDrawing")
                                             .and(ElementMatchers.takesNoArguments())))
-                            .visit(Advice.to(ConeViewportHold.End.class).on(
+                            .visit(advice(ConeViewportHold.End.class).on(
                                     ElementMatchers.named("stopDrawing")
                                             .and(ElementMatchers.takesNoArguments()))))
                     .installOn(inst);
@@ -672,7 +695,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
             base()
                     .type(ElementMatchers.named("zombie.vispoly.VisibilityPolygon2"))
                     .transform((b, td, cl, mod, pd) -> b
-                            .visit(Advice.to(ConeViewportPass.class).on(
+                            .visit(advice(ConeViewportPass.class).on(
                                     ElementMatchers.named("renderMain")
                                             .and(ElementMatchers.takesArguments(int.class)))))
                     .installOn(inst);
@@ -697,7 +720,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
             base()
                     .type(ElementMatchers.named("zombie.core.textures.TextureFBO"))
                     .transform((b, td, cl, mod, pd) -> b
-                            .visit(Advice.to(FboTextureGetter.class).on(
+                            .visit(advice(FboTextureGetter.class).on(
                                     ElementMatchers.named("getTexture")
                                             .and(ElementMatchers.takesNoArguments()))))
                     .installOn(inst);
@@ -720,7 +743,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
             base()
                     .type(ElementMatchers.named("zombie.core.textures.MultiTextureFBO2"))
                     .transform((b, td, cl, mod, pd) -> b
-                            .visit(Advice.to(MtfboCreateEnter.class).on(
+                            .visit(advice(MtfboCreateEnter.class).on(
                                     ElementMatchers.named("create")
                                             .and(ElementMatchers.takesArguments(2))
                                             .and(ElementMatchers.not(ElementMatchers.isStatic()))))
@@ -744,16 +767,16 @@ static boolean patchConeEndFrame(Instrumentation inst) {
                     .type(ElementMatchers.named("zombie.core.textures.TextureDraw"))
                     .transform((b, td, cl, mod, pd) -> {
                         var v = b
-                                .visit(Advice.to(DrawModelEnter.class).on(
+                                .visit(advice(DrawModelEnter.class).on(
                                         ElementMatchers.named("drawModel")
                                                 .and(ElementMatchers.isStatic())
                                                 .and(ElementMatchers.takesArguments(2))))
-                                .visit(Advice.to(DrawModelExit.class).on(
+                                .visit(advice(DrawModelExit.class).on(
                                         ElementMatchers.named("drawModel")
                                                 .and(ElementMatchers.isStatic())
                                                 .and(ElementMatchers.takesArguments(2))));
                         if (FsrHooks.wantViewport()) {
-                            v = v.visit(Advice.to(
+                            v = v.visit(advice(
                                             TextureDrawViewportEnter.class).on(
                                             ElementMatchers.named("glViewport")
                                                     .and(ElementMatchers.isStatic())
@@ -781,7 +804,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
                     .type(ElementMatchers.named("org.lwjgl.opengl.GL11"))
                     .transform((b, td, cl, mod, pd) -> {
                         var v = b.visit(
-                                Advice.to(RawViewportEnter.class).on(
+                                advice(RawViewportEnter.class).on(
                                         ElementMatchers.named("glViewport")
                                                 .and(ElementMatchers.isStatic())
                                                 .and(ElementMatchers.takesArguments(4))));
@@ -797,7 +820,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
                     .type(ElementMatchers.named("zombie.core.sprite.GenericSpriteRenderState"))
                     .transform((b, td, cl, mod, pd) -> {
                         var v = b.visit(
-                                Advice.to(ViewportEnter.class).on(
+                                advice(ViewportEnter.class).on(
                                         ElementMatchers.named("glViewport")
                                                 .and(ElementMatchers.not(ElementMatchers.isStatic()))
                                                 .and(ElementMatchers.takesArguments(4))));
@@ -813,7 +836,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
                     .type(ElementMatchers.named("zombie.core.SpriteRenderer"))
                     .transform((b, td, cl, mod, pd) -> {
                         var v = b.visit(
-                                Advice.to(ViewportEnter.class).on(
+                                advice(ViewportEnter.class).on(
                                         ElementMatchers.named("glViewport")
                                                 .and(ElementMatchers.not(ElementMatchers.isStatic()))
                                                 .and(ElementMatchers.takesArguments(4))));
@@ -833,7 +856,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
             base()
                     .type(ElementMatchers.named("zombie.core.SpriteRenderer"))
                     .transform((b, td, cl, mod, pd) -> b.visit(
-                            Advice.to(StartFrameExit.class).on(
+                            advice(StartFrameExit.class).on(
                                     ElementMatchers.named("glDoStartFrame")
                                             .and(ElementMatchers.not(ElementMatchers.isStatic()))
                                             .and(ElementMatchers.takesArguments(4)))))
@@ -846,7 +869,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
             base()
                     .type(ElementMatchers.named("zombie.core.SpriteRenderer"))
                     .transform((b, td, cl, mod, pd) -> b.visit(
-                            Advice.to(EndFrameExit.class).on(
+                            advice(EndFrameExit.class).on(
                                     ElementMatchers.named("glDoEndFrame")
                                             .and(ElementMatchers.not(ElementMatchers.isStatic()))
                                             .and(ElementMatchers.takesArguments(0)))))
