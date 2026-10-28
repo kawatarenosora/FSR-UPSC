@@ -905,12 +905,23 @@ static boolean patchConeEndFrame(Instrumentation inst) {
     /** Common AgentBuilder head: logging listener, plus the retransformation
      * strategy in late mode (ZombieBuddy entry) so classes loaded before us
      * are picked up. Redefinition errors are reported per batch without
-     * failing the remaining installs. */
+     * failing the remaining installs.
+     *
+     * <p>Late mode also disables class format changes: AgentBuilder's
+     * defaults (REBASE type strategy + Nexus initialization) inject a
+     * synthetic {@code <clinit>} into every transformed class, which the JVM
+     * rejects for a redefinition with "attempted to add a method" (a
+     * {@code <clinit>} counts as a method). Offline reproduction confirmed
+     * the injected clinit is a reflective call into
+     * {@code net.bytebuddy.dynamic.Nexus}. Load-time transforms (javaagent
+     * premain) are unaffected: a {@code <clinit>} added at definition is
+     * legal, so the published javaagent behavior stays byte-identical. */
     private static AgentBuilder base() {
         AgentBuilder b = new AgentBuilder.Default().with(new LogListener());
         if (lateMode) {
             b = b.with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
-                    .with(new RedefLog());
+                    .with(new RedefLog())
+                    .disableClassFormatChanges();
         }
         return b;
     }
@@ -929,8 +940,18 @@ static boolean patchConeEndFrame(Instrumentation inst) {
         }
     }
 
-    /** Retransform pass: report batch failures, keep going. */
+    /** Retransform pass: report batch failures with the class names, keep going. */
     static final class RedefLog implements AgentBuilder.RedefinitionStrategy.Listener {
+        private static String names(java.util.List<Class<?>> batch) {
+            if (batch == null) return "[]";
+            StringBuilder sb = new StringBuilder("[");
+            for (Class<?> c : batch) {
+                if (sb.length() > 1) sb.append(',');
+                sb.append(c.getName());
+            }
+            return sb.append(']').toString();
+        }
+
         @Override
         public void onBatch(
                 int index, java.util.List<Class<?>> batch,
@@ -941,7 +962,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
         public Iterable<? extends java.util.List<Class<?>>> onError(
                 int index, java.util.List<Class<?>> batch,
                 Throwable throwable, java.util.List<Class<?>> types) {
-            FsrHooks.hookFailed("retransform batch " + index + ": ", throwable);
+            FsrHooks.hookFailed("retransform batch " + index + " " + names(types) + ": ", throwable);
             return java.util.Collections.emptyList();
         }
 
@@ -950,8 +971,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
                 java.util.Map<java.util.List<Class<?>>, Throwable> causes) {
             if (causes != null) {
                 for (java.util.Map.Entry<java.util.List<Class<?>>, Throwable> e : causes.entrySet()) {
-                    FsrHooks.hookFailed("retransform "
-                            + e.getKey().size() + " type(s): ", e.getValue());
+                    FsrHooks.hookFailed("retransform " + names(e.getKey()) + ": ", e.getValue());
                 }
             }
         }
