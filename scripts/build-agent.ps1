@@ -3,7 +3,9 @@
 Build the unified fsr-upsc-agent.jar against the installed game revision.
 .DESCRIPTION
 Compiles src/fsrupsc with javac (JDK 25+) against <game>/projectzomboid.jar,
-verifies zombie/GitVersion REVISION and drops 42/media/java/fsr-upsc-agent.jar.
+verifies zombie/GitVersion REVISION and drops the jar into 42/media/java,
+mirrored byte-identical to 42\agent\<label>\fsr-upsc-agent.jar (one folder
+per game build; media\java is the copy ZombieBuddy loads via mod.info).
 
 One jar, two loading modes:
 - javaagent: -javaagent:<this jar> boots fsrupsc.FsrAgent.premain (load-time
@@ -29,13 +31,13 @@ One jar, two loading modes:
 param(
   [string]$GameDir = "E:\Program Files (x86)\Steam\steamapps\common\ProjectZomboid",
   [string]$Revision = "",               # defaults to the installed game's revision
-  [string]$VersionLabel = ""            # accepted for compatibility; ignored (single media/java output)
+  [string]$VersionLabel = ""            # agent\<label> mirror folder; defaults to the revision's label
 )
 $ErrorActionPreference = 'Stop'
 $Jar = Join-Path $GameDir 'projectzomboid.jar'
 if (-not (Test-Path -LiteralPath $Jar)) { throw "no projectzomboid.jar in $GameDir" }
-# The revision hash is authoritative; "42.x" labels name nothing here because
-# the jar lives in a single media/java path (ZombieBuddy reads one javaJarFile).
+# The revision hash is authoritative; the 42.x label only names the
+# agent\<label> mirror folder (mapped from the revision after the build).
 if (-not $Revision) {
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   $z = [System.IO.Compression.ZipFile]::OpenRead($Jar)
@@ -150,6 +152,20 @@ $Manifest = Join-Path ([IO.Path]::GetTempPath()) 'fsr-upsc-manifest.txt'
 if (Test-Path -LiteralPath $AgentJar) { Remove-Item -LiteralPath $AgentJar -Force }
 & $JarTool --create --file $AgentJar --manifest $Manifest -C $Out .
 Remove-Item -LiteralPath $Manifest -Force -ErrorAction SilentlyContinue
+# Mirror into 42\agent\<label>\ so the javaagent layout stays per-build:
+# agent\<label>\fsr-upsc-agent.jar = the jar for that game build (rollback
+# builds keep accumulating here as the game moves on), media\java =
+# the byte-identical copy ZombieBuddy loads via mod.info's javaJarFile.
+$Labels = @{ '4a0e9546ec' = '42.21'; 'e013dbb529' = '42.22' }
+if (-not $VersionLabel) { $VersionLabel = $Labels[$Revision] }
+if ($VersionLabel) {
+  $AgentDir = Join-Path $Root "42\agent\$VersionLabel"
+  New-Item -ItemType Directory -Force -Path $AgentDir | Out-Null
+  Copy-Item -LiteralPath $AgentJar -Destination (Join-Path $AgentDir 'fsr-upsc-agent.jar') -Force
+  Write-Output "mirrored to $AgentDir\fsr-upsc-agent.jar"
+} else {
+  Write-Warning "no label mapped for revision $Revision - add it to the label map; jar left in media\java only"
+}
 # Keep the Workshop staging copy in sync when present: copy the whole 42\
 # tree (mod.info, media, agent), so a rebuild also ships lua / mod.info
 # changes, not just the jar. Additive (no /PURGE): files deleted from the

@@ -7,10 +7,11 @@ Copies the agent jar next to projectzomboid.jar and adds
 to ProjectZomboid64.json vmArgs (backs up once to *.fsrupsc-bak).
 
 Source jar selection (auto, override with -VersionLabel 42.21 / 42.22):
-- game 42.22 (e013dbb529): 42\media\java\fsr-upsc-agent.jar - the unified
-  build that also loads as a ZombieBuddy java mod
-- game 42.21 (4a0e9546ec): 42\agent\42.21\fsr-upsc-agent.jar - legacy
-  javaagent build for rollback players (javaagent mode only)
+- 42\agent\<build>\fsr-upsc-agent.jar - one jar per game build
+  (42.22 = e013dbb529, the unified build; 42.21 = 4a0e9546ec, the legacy
+  rollback build, javaagent mode only). The 42.22 jar is mirrored
+  byte-identical at 42\media\java\fsr-upsc-agent.jar, the copy the
+  ZombieBuddy java-mod load reads via mod.info. (javaagent mode only)
 
 Every jar is revision-gated inside (build-info.properties / Target-Revision
 vs zombie.GitVersion) and runs stock on a mismatched game build, so a wrong
@@ -41,14 +42,14 @@ $ErrorActionPreference = 'Stop'
 $Jar = Join-Path $GameDir 'projectzomboid.jar'
 $Json = Join-Path $GameDir 'ProjectZomboid64.json'
 $Bak = "$Json.fsrupsc-bak"
-# Source selection: the unified build (media\java, currently 42.22) serves
-# both loading modes; the bundled agent\42.21 jar is the legacy javaagent
-# build for players who rolled the game back to Build 42.21. -VersionLabel
-# overrides the auto-detection (42.21 / 42.22).
+# Source selection: one jar per game build under 42\agent\<label> (the
+# 42.22 jar is the unified build, mirrored byte-identical at 42\media\java
+# for the ZombieBuddy load path). -VersionLabel overrides the
+# auto-detection (42.21 / 42.22).
 $AgentRoot = Split-Path -Parent $PSScriptRoot
 $AgentSrcLabels = @{
   '42.21' = Join-Path $AgentRoot "42\agent\42.21\fsr-upsc-agent.jar"
-  '42.22' = Join-Path $AgentRoot "42\media\java\fsr-upsc-agent.jar"
+  '42.22' = Join-Path $AgentRoot "42\agent\42.22\fsr-upsc-agent.jar"
 }
 if (-not $VersionLabel) {
   if (Test-Path -LiteralPath $Jar) {

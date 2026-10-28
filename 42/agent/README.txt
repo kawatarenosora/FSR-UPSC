@@ -1,15 +1,16 @@
-FSR-UPSC agent jars by game build:
+FSR-UPSC agent jars, one folder per game build (javaagent mode):
 
   42.21/fsr-upsc-agent.jar   game revision 4a0e9546ec (Build 42.21)
-                             legacy javaagent build for rollback players.
-                             Javaagent mode only: ZombieBuddy does not load
-                             this folder - on 42.21 the ZombieBuddy mode of
-                             this mod runs stock.
+                             legacy build for rollback players.
+                             Javaagent mode only: on 42.21 the ZombieBuddy
+                             mode of this mod runs stock.
 
-The current unified build lives one level up, at
-..\..\media\java\fsr-upsc-agent.jar (game revision e013dbb529, Build 42.22).
-It serves BOTH loading modes: the -javaagent launch option and the
-ZombieBuddy java-mod load (javaJarFile/javaPkgName in mod.info).
+  42.22/fsr-upsc-agent.jar   game revision e013dbb529 (Build 42.22)
+                             the unified build. Serves the -javaagent
+                             launch option; the byte-identical copy at
+                             ..\..\media\java\fsr-upsc-agent.jar is what
+                             the ZombieBuddy java-mod load reads from
+                             mod.info (javaJarFile/javaPkgName).
 
 Every jar carries a fsrupsc/build-info.properties entry (revision=<hash>)
 plus Target-Revision in its manifest, so PZ JAM Launcher's version-check
