@@ -894,7 +894,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
         return ok;
     }
 
-    /** Compare zombie/GitVersion REVISION constant against the built target (AgentRev). */
+    /** Compare zombie/GitVersion REVISION against the supported whitelist (AgentRev). */
     static boolean revisionMatches() {
         try {
             byte[] bytes;
@@ -907,7 +907,7 @@ static boolean patchConeEndFrame(Instrumentation inst) {
             java.util.regex.Matcher m =
                     java.util.regex.Pattern.compile("\\b[0-9a-f]{10}\\b").matcher(ascii);
             while (m.find()) {
-                if (FsrAgent.TARGET_REVISION.equals(m.group())) return true;
+                if (AgentRev.isSupported(m.group())) return true;
             }
             return false;
         } catch (Exception e) {

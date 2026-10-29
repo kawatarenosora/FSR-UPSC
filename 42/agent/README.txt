@@ -1,9 +1,11 @@
 FSR-UPSC agent jars, one folder per game build (javaagent mode):
 
   42.21/fsr-upsc-agent.jar   game revision 4a0e9546ec (Build 42.21)
-                             legacy build for rollback players.
-                             Javaagent mode only: on 42.21 the ZombieBuddy
-                             mode of this mod runs stock.
+                             proven legacy 42.21 build (javaagent mode).
+                             The unified jar in 42.22\ (and ..\..\media\java\)
+                             also accepts 42.21 at the runtime gate, so the
+                             ZombieBuddy mode works on 42.21 through the
+                             media\java copy.
 
   42.22/fsr-upsc-agent.jar   game revision e013dbb529 (Build 42.22)
                              the unified build. Serves the -javaagent

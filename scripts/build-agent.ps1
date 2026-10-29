@@ -20,13 +20,16 @@ One jar, two loading modes:
   "fsrupsc.armed" system property, and ZbEntry additionally skips when
   -javaagent is visible in the JVM input arguments.
 
-- One jar per game revision: the target revision is generated as
-  fsrupsc/BuildRev.java (a compile-time constant; jar resources are NOT
-  readable under ZombieBuddy's transformed-jar loader) and also written to
-  fsrupsc/build-info.properties for external loaders (PZ JAM Launcher).
-  When the game updates, rebuild with the new revision and publish a mod
-  update; mod.info's versionMin/versionMax gates the mod list, and the
-  runtime hash check refuses to arm on a mismatch as hotfix insurance.
+- One jar, curated revision whitelist: the primary target revision is
+  generated as fsrupsc/BuildRev.java (a compile-time constant; jar
+  resources are NOT readable under ZombieBuddy's transformed-jar loader)
+  and also written to fsrupsc/build-info.properties for external loaders
+  (PZ JAM Launcher). The runtime gate accepts every revision listed in
+  fsrupsc/AgentRev.SUPPORTED (a source constant): before adding an entry,
+  re-verify the hook targets against that game build's bytecode (javap the
+  hook classes; an extracted game tree works as the offline classpath).
+  mod.info's versionMin/versionMax gates the mod list; the hash gate
+  remains hotfix insurance for unlisted builds (stock, safe side).
 #>
 param(
   [string]$GameDir = "E:\Program Files (x86)\Steam\steamapps\common\ProjectZomboid",

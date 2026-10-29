@@ -84,20 +84,19 @@ public final class ZbEntry {
     }
 
     /**
-     * ZB path revision gate: compare the built target (BuildRev constant via
-     * {@link AgentRev}) against {@code zombie.GitVersion#REVISION} read
-     * reflectively. GitVersion is a tiny constants holder; loading and
-     * initializing it is side-effect free. On mismatch, print both sides so
+     * ZB path revision gate: compare {@code zombie.GitVersion#REVISION} read
+     * reflectively against the supported whitelist (AgentRev.SUPPORTED).
+     * GitVersion is a tiny constants holder; loading and initializing it is
+     * side-effect free. On mismatch, print the whitelist and the game side so
      * the console line alone diagnoses a build/mod pairing mistake.
      */
     private static boolean zbRevMatches() {
         String game = gameRevision();
-        String target = AgentRev.REVISION;
-        if (game != null && game.equals(target)) {
+        if (AgentRev.isSupported(game)) {
             return true;
         }
         System.out.println("[fsr-upsc] revision mismatch, running stock (no transform)"
-            + " target=" + (target.isEmpty() ? "<unreadable>" : target)
+            + " supported=" + AgentRev.SUPPORTED
             + " game=" + (game == null || game.isEmpty() ? "<unreadable>" : game));
         return false;
     }

@@ -92,10 +92,13 @@ powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1 -VersionLabel
 ```
 
 (without `-VersionLabel` the script auto-detects the installed build and picks
-the matching jar). The ZombieBuddy mode is 42.22-only: on 42.21 the mod still
-enables (`versionMin=42.21`), but its 42.22 jar's revision gate refuses to arm
-and the game runs stock - every mismatch prints one
-`revision mismatch ... target=... game=...` line to console.txt.
+the matching jar). The ZombieBuddy mode also works on 42.21: the unified jar's
+runtime gate accepts both revisions (`AgentRev.SUPPORTED` whitelist), so
+ZombieBuddy users on a 42.21 rollback keep FSR with no changes. The
+`agent\42.21` folder additionally preserves the proven legacy 42.21 build for
+the javaagent mode. Any unlisted game revision runs stock instead of
+transforming - every mismatch prints one
+`revision mismatch ... supported=... game=...` line to console.txt.
 
 vmArgs written by attach:
 

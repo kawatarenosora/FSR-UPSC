@@ -26,7 +26,8 @@ public final class FsrAgent {
             return;
         }
         if (!FsrTransformer.revisionMatches()) {
-            System.out.println("[fsr-upsc] revision mismatch, running stock (no transform)");
+            System.out.println("[fsr-upsc] revision mismatch, running stock (no transform)"
+                + " supported=" + AgentRev.SUPPORTED);
             return;
         }
 
