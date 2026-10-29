@@ -20,13 +20,12 @@ diagnostic records are archived in `docs/DIAGNOSIS-HISTORY.md`.
 
 ## Two loading modes, one jar
 
-The unified jar ships twice, byte-identical: `42\agent\42.22\fsr-upsc-agent.jar`
-(per-build folder for the javaagent mode) and `42\media\java\fsr-upsc-agent.jar`
-(the copy ZombieBuddy loads through mod.info). Pick whichever mode fits:
+One jar serves both modes and both supported game builds:
+`42\media\java\fsr-upsc-agent.jar`. Pick whichever mode fits:
 
 | Mode | Setup | Boot path |
 |---|---|---|
-| **javaagent** | add `-javaagent:<mod folder>\42\agent\42.22\fsr-upsc-agent.jar` to the launch options (or use `scripts\install-agent.ps1`) | JVM runs `fsrupsc.FsrAgent.premain` before any game class loads: every hook is applied at class-load time |
+| **javaagent** | add `-javaagent:<mod folder>\42\media\java\fsr-upsc-agent.jar` to the launch options (or use `scripts\install-agent.ps1`) | JVM runs `fsrupsc.FsrAgent.premain` before any game class loads: every hook is applied at class-load time |
 | **ZombieBuddy** | keep [ZombieBuddy](https://steamcommunity.com/sharedfiles/filedetails/?id=3812624292) installed and enable this mod; no launch options | ZombieBuddy reads `javaJarFile`/`javaPkgName` from `mod.info` and runs `fsrupsc.Main`, which boots `fsrupsc.ZbEntry` through the system classloader and retransforms the already-loaded game classes with ZB's own instrumentation (ZB release 2.x and BETA 3.x both work; the first launch shows ZB's approval dialog - choose persist) |
 
 Running both at once is safe and logged: `FsrAgent.premain` arms first and sets
@@ -38,9 +37,8 @@ stands down. Behavior, settings and Lua options are identical in both modes.
 
 ```
 42/                  mod body (mod.info, media/lua, media/shaders)
-  media/java/        agent jar, current build (ZombieBuddy loads it via mod.info)
-  agent/             per-build agent jars for the javaagent mode + README
-    42.21/ 42.22/    fsr-upsc-agent.jar (42.21 = legacy rollback build)
+  media/java/        the single agent jar (ZombieBuddy loads it via mod.info;
+                     the -javaagent launch option points at the same file)
 src/fsrupsc/         agent source (single package: fsrupsc)
 scripts/             build-agent.ps1 / install-agent.ps1 / gen-shaders.ps1 / rebrand.ps1
 vendor/lib/          byte-buddy 1.18.8 (unshaded)
@@ -58,9 +56,8 @@ powershell -ExecutionPolicy Bypass -File scripts\build-agent.ps1
 - Reads `zombie/GitVersion` from `<game>/projectzomboid.jar` and targets the
   installed game's revision (pass `-Revision <hash>` to cross-build). The agent
   itself waits for the same hash as a string and runs stock otherwise.
-- Output: `42\media\java\fsr-upsc-agent.jar`, mirrored byte-identical to
-  `42\agent\<label>\fsr-upsc-agent.jar` (byte-buddy unpacked into the jar;
-  self-contained for the javaagent mode). Each jar embeds
+- Output: `42\media\java\fsr-upsc-agent.jar` (byte-buddy unpacked into the jar;
+  self-contained for the javaagent mode). The jar embeds
   `fsrupsc/build-info.properties` (`revision=<hash>`) plus `Target-Revision` in
   its manifest, which the PZ JAM Launcher revision gate reads.
 
@@ -72,8 +69,9 @@ time** (double-patch conflict). Pick one of the two modes above:
 - **ZombieBuddy mode**: copy/subscribe the mod and enable it together with
   ZombieBuddy in the mod list. Nothing else to configure; the jar is loaded
   from `42\media\java\fsr-upsc-agent.jar` via mod.info.
-- **javaagent mode**: the install script auto-detects the installed game build
-  and points the launch options at the matching jar.
+- **javaagent mode**: the install script copies the single jar next to the
+  game's projectzomboid.jar and adds the launch options (no build selection
+  needed - the jar's whitelist accepts every supported game build).
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1            # attach
@@ -83,22 +81,14 @@ powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1 -Uninstall # 
 
 ### Rollback (42.22 → 42.21)
 
-On a rolled-back game (Build 42.21, revision `4a0e9546ec`) the javaagent mode
-keeps working through the bundled legacy build
-`42\agent\42.21\fsr-upsc-agent.jar`:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\install-agent.ps1 -VersionLabel 42.21
-```
-
-(without `-VersionLabel` the script auto-detects the installed build and picks
-the matching jar). The ZombieBuddy mode also works on 42.21: the unified jar's
-runtime gate accepts both revisions (`AgentRev.SUPPORTED` whitelist), so
-ZombieBuddy users on a 42.21 rollback keep FSR with no changes. The
-`agent\42.21` folder additionally preserves the proven legacy 42.21 build for
-the javaagent mode. Any unlisted game revision runs stock instead of
-transforming - every mismatch prints one
-`revision mismatch ... supported=... game=...` line to console.txt.
+Nothing special: the runtime whitelist (`fsrupsc.AgentRev.SUPPORTED`) accepts
+both builds in both modes, so the same install keeps working on Build 42.21
+(revision `4a0e9546ec`) and Build 42.22 (revision `e013dbb529`). Any unlisted
+game revision runs stock instead of transforming - every mismatch prints one
+`revision mismatch ... supported=... game=...` line to console.txt. A revision
+joins the whitelist only after its bytecode is re-verified against the hook
+targets (javap the hook classes; an extracted game tree works as the offline
+classpath).
 
 vmArgs written by attach:
 
