@@ -236,10 +236,30 @@ per-frame measurement output.
 - If `RenderScale.disable()` fails, permanent stock fallback (reason logged)
 - World pass only = UI/text/composite stay at full resolution
 - GL on the render thread only; no GL query / allocation / logging in hook bodies
-- The vision cone is excluded from scaling (optionally suppressed with the
-  `fsrupsc-nocone` marker)
+- The view cone runs through its own draw pass and is corrected by dedicated
+  hooks (vertex scale + depth relax; see the view cone fix in the records below)
 
 ## Settled fix records
+
+- **View cone offset fix (2026-10-31)**: under downscaling the view cone drifted
+  from the player — horizontally fixed by the scale chain, vertically still off
+  by a zoom-dependent margin (growing with zoom-out). Cause: the cone draws
+  through its own CPU-transformed pipeline (`renderMain -> Drawer.render ->
+  renderNew -> renderPolygons -> renderOneTriangle`), so shrinking the world
+  pass moved every reference out from under it. Three settled pieces: the cone's
+  screen-space vertices are scaled by the render scale about the frame origin
+  (scoped MemberSubstitution on the two `X/YToScreenExact` call sites in the
+  polygon builder — the horizontal half), `Drawer.renderNew`'s
+  `glDepthFunc(GL_LEQUAL)` buried cone tiles under floor depth and is relaxed
+  to GL_ALWAYS with depth writes off (`fsrupsc-conedepth`), and the vertical
+  residual equals `nativeHeight * (1 - scale) * zoom` px applied at the vertex
+  stage — exactly zero at native rendering (1080p verified), `180 * zoom` at
+  1600x900 (user-dial verified across zoom levels), growing at lower presets;
+  the constant follows the display height, so other monitor resolutions scale
+  by construction (4K/2K not yet on-hand tested). If the cone still sits off in
+  your environment, please report it. Until a fix ships you can hide the cone
+  via the vanilla option: Options -> Display & Performance -> Rendering and
+  Performance -> **View Cone Opacity = 0.00**.
 
 - **Outline offset fix (2026-10-26)**: when scaling, outlines of near targets
   (zombies/containers) displayed shrunk 0.775x (= 1488/1920) toward the upper left of
