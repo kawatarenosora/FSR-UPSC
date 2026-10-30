@@ -144,6 +144,50 @@ public final class FsrHooks {
      */
     public static boolean wantConeVertex() { return markerFile("fsr-upsc-conevertex"); }
 
+    /** Diagnostic: draw the cone's triangles with GL_ALWAYS (burial probe). */
+    public static boolean wantConeDepth() { return markerFile("fsr-upsc-conedepth"); }
+
+    /**
+     * Vertical-shift scale for the cone's Y vertices (the vertex stage applies
+     * it as C * (1 - s) * zoom, see ConeVertexScale.y). Read live from the
+     * {@code fsr-upsc-coneyadd} marker file when present (absolute value,
+     * re-read every 2 s), otherwise the default passed in. Default: the
+     * native display height (1080 on the user's screen); the needed vertex
+     * add fits nativeHeight * (1 - s) * zoom -- zero at native rendering,
+     * 180 * zoom at s = 0.8333 per user dial, growing at smaller render
+     * sizes and scaling with the monitor height on other displays.
+     */
+    public static float coneYConst(float def) {
+        try {
+            long now = System.nanoTime();
+            if (now < yAddNext) return yAddCache;
+            yAddNext = now + 2_000_000_000L;
+            try {
+                java.nio.file.Path p = java.nio.file.Path.of(
+                        System.getenv("userprofile") == null ? "" : System.getenv("userprofile"),
+                        "Zomboid", "fsr-upsc-coneyadd");
+                if (java.nio.file.Files.exists(p)) {
+                    String s = java.nio.file.Files.readString(p).trim();
+                    if (!s.isEmpty()) yAddCache = Float.parseFloat(s);
+                    else yAddCache = def;
+                } else {
+                    yAddCache = def;
+                }
+            } catch (Throwable t) {
+                yAddCache = def;
+            }
+            return yAddCache;
+        } catch (Throwable t) {
+            return def;
+        }
+    }
+
+    private static volatile float yAddCache;
+    private static volatile long yAddNext;
+
+    /** Diagnostic: log the cone's native/scaled vertex values (remove probe). */
+    public static boolean wantConeProbe() { return markerFile("fsr-upsc-coneprobe"); }
+
     /** Hold the viewport funnel off while the cone lightmap draws. */
     public static boolean wantConeHold() { return markerFile("fsrupsc-coneviewport"); }
 
@@ -225,14 +269,15 @@ public final class FsrHooks {
      * changes what the player sees and nothing else reports it.
      */
     private static String coneSpec() {
-        String sup = "off", vis = "off";
+        String sup = "off", vis = "off", vtx = "off";
         try {
             if (fsrupsc.RenderScale.cone1Suppressed()) sup = "cone1-OFF";
             if (fsrupsc.RenderScale.cone2Suppressed()) sup = sup.equals("off") ? "cone2-OFF" : "BOTH-OFF";
         } catch (Throwable ignored) {}
         try { if (wantVisCone()) vis = "DISPLAYSIZE-RESCALED"; } catch (Throwable ignored) {}
-        if ("off".equals(sup) && "off".equals(vis)) return "pure";
-        return sup + "/" + vis;
+        try { if (wantConeVertex()) vtx = "VERTEX-SCALED"; } catch (Throwable ignored) {}
+        if ("off".equals(sup) && "off".equals(vis) && "off".equals(vtx)) return "pure";
+        return sup + "/" + vis + "/" + vtx;
     }
 
     private static volatile boolean suppress;

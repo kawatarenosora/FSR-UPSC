@@ -108,15 +108,27 @@ public final class FsrTransformer {
         if (FsrHooks.wantVisCone() && patchVisConeDisplay(inst)) {
             done.append("VisibilityPolygon2.renderToScreen[rescale],");
         }
-        if (FsrHooks.wantConeVertex() && patchConeEndFrame(inst)) {
-            done.append("FBORenderChunkManager.endFrame cone rect,");
+        // The cone marker now means the vertex scale only. The endFrame/overlay
+        // substitutions it used to carry are retired: the 02:06 run on 42.22
+        // (e013dbb529) applied both cleanly and the cone vanished. endFrame's
+        // getOffscreenWidth/Height locals also feed glDoStartFrame(NoZoom)(w, h) --
+        // the frame bounds of the whole chunk-composite pass -- and MemberSubstitution
+        // cannot scope by use site, so reframing the cone reframes the pass too.
+        if (FsrHooks.wantConeVertex() && patchConeVertexScale(inst)) {
+            done.append("VisibilityPolygon2$Drawer cone vertex scale,");
+        }
+        // The renderMain advice traces were retired 2026-10-30: Byte Buddy could
+        // not resolve their advice classes ("Could not locate class file for
+        // fsrupsc.ConeTraceEnter") even though the classes are in the jar, and
+        // the burial question they existed to answer was settled by the
+        // conedepth probe. The live vertex-value probe now rides inside
+        // ConeVertexScale.x/y (member substitution, no advice bytecode needed).
+        if (FsrHooks.wantConeDepth() && patchConeDepth(inst)) {
+            done.append("Drawer.renderNew depth relax,");
         }
         // the reticle hold rides along in patchFboRender: one install per type
         if (FsrHooks.wantConeHold() && patchConeHold(inst)) {
             done.append("cone viewport hold,");
-        }
-        if (FsrHooks.wantConeVertex() && patchConeOverlay(inst)) {
-            done.append("DrawPlayerCone2 quad = scaled screen rect,");
         }
         if (FsrHooks.wantConeSuppress() && patchConeSuppression(inst)) {
             done.append("IsoWorld.DrawPlayerCone,");
@@ -625,10 +637,13 @@ static boolean patchConeEndFrame(Instrumentation inst) {
      * cone's polygon builder</em> so the cone's vertices land in the shrunken
      * viewport's coordinate space.
      *
-     * <p>renderOld draws the cone as raw triangles through VBORenderer, so there
-     * is no shader uniform and no viewport call to intercept on this path -- see
-     * ConeVertexScale for the full reading. The vertex coordinate is the only
-     * thing that decides the cone's position.
+     * <p>42.22 (e013dbb529) bytecode settled the path: useNewVisibility defaults
+     * true (Visibility.UseNew) and renderVisionPolygon is a debug-only option
+     * whose getValue returns the default (true) in non-debug runs, so the live
+     * chain is renderMain -&gt; Drawer.render -&gt; renderNew -&gt; renderPolygons -&gt;
+     * triangulatePolygons -&gt; renderOneTriangle. The earlier "renderOld" reading
+     * was wrong. The vertex coordinate is the only thing that decides the
+     * cone's position; see ConeVertexScale for the full reading.
      *
      * <p>The substitution is scoped by both the target method and the declaring
      * type. Without the type filter the matcher also takes unrelated overloads
@@ -699,6 +714,42 @@ static boolean patchConeEndFrame(Instrumentation inst) {
             return true;
         } catch (Throwable t) {
             FsrHooks.hookFailed("coneVertex on " + typeName, t);
+            return false;
+        }
+    }
+
+    /**
+     * Diagnostic: retarget glDepthFunc / glDepthMask inside Drawer.renderNew
+     * to ConeDepth (GL_ALWAYS, no depth writes) behind fsr-upsc-conedepth.
+     * See ConeDepth for the burial hypothesis this probes.
+     */
+    static boolean patchConeDepth(Instrumentation inst) {
+        try {
+            net.bytebuddy.description.method.MethodDescription df =
+                    declared(fsrupsc.ConeDepth.class, "func");
+            net.bytebuddy.description.method.MethodDescription dm =
+                    declared(fsrupsc.ConeDepth.class, "mask");
+            ElementMatcher.Junction<net.bytebuddy.description.type.TypeDescription>
+                    gl11 = ElementMatchers
+                    .<net.bytebuddy.description.type.TypeDescription>
+                    named("org.lwjgl.opengl.GL11");
+            base()
+                    .type(ElementMatchers.named("zombie.vispoly.VisibilityPolygon2$Drawer"))
+                    .transform((b, td, cl, mod, pd) -> b
+                            .visit(net.bytebuddy.asm.MemberSubstitution.relaxed()
+                                    .method(ElementMatchers.<net.bytebuddy.description.method.MethodDescription>
+                                            named("glDepthFunc").and(ElementMatchers.isDeclaredBy(gl11)))
+                                    .replaceWith(new net.bytebuddy.asm.MemberSubstitution.Substitution
+                                            .ForMethodInvocation.OfGivenMethod(df))
+                                    .method(ElementMatchers.<net.bytebuddy.description.method.MethodDescription>
+                                            named("glDepthMask").and(ElementMatchers.isDeclaredBy(gl11)))
+                                    .replaceWith(new net.bytebuddy.asm.MemberSubstitution.Substitution
+                                            .ForMethodInvocation.OfGivenMethod(dm))
+                                    .on(ElementMatchers.named("renderNew"))))
+                    .installOn(inst);
+            return true;
+        } catch (Throwable t) {
+            FsrHooks.hookFailed("coneDepth", t);
             return false;
         }
     }
