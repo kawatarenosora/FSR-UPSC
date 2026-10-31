@@ -47,6 +47,15 @@ public final class FsrAgent {
         FsrTransformer.install(inst);
         System.setProperty("fsrupsc.armed", "1");
 
+        // ZombieBuddy 3.x: its own premain runs first on the -javaagent line
+        // and can load hook targets (Display, LuaManager, ...) before this
+        // premain runs; a cold install permanently misses those, so retrofit
+        // them here. Types already transformed are skipped by Byte Buddy.
+        try { FsrTransformer.retrofitLateIfLoaded(inst); } catch (Throwable ignored) {}
+        // If Lua init already ran before us, register FsrControl directly
+        // (same fallback the ZbEntry path uses; harmless when not ready).
+        try { ZbEntry.exposeIfReady(inst); } catch (Throwable ignored) {}
+
         // FG insert style / pacing from ModOptions.ini/settings (pure static
         // toggles, no GL at premain); FgPresent flips them again on live
         // option apply -- where the display frequency is already available

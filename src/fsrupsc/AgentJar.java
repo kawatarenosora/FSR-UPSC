@@ -58,10 +58,35 @@ final class AgentJar {
         } catch (Throwable ignored) {
             // fall through
         }
-        // 4) known local WIP path (local testing convenience)
-        File f = new File(System.getProperty("user.home"),
-                "Zomboid/mods/FSR-UPSC-ZB/42/media/java/fsr-upsc-agent.jar");
-        if (f.isFile()) return f;
+        // 4) stable install locations: the Workshop staging copy is the
+        // single deploy target of the build script (and the path ZB prints
+        // in its own console: "[ZB] loaded transformed mod jar ...fsr-upsc-
+        // agent.jar"), the old local WIP copy is kept as a convenience.
+        // ZombieBuddy 3.x's transformed-jar loader hides code source and
+        // resources alike, so under ZB 3.x these are the only hits.
+        for (String rel : new String[]{
+                "Zomboid/Workshop/FSR-UPSC/Contents/mods/FSR-UPSC/42/media/java/fsr-upsc-agent.jar",
+                "Zomboid/mods/FSR-UPSC-ZB/42/media/java/fsr-upsc-agent.jar"}) {
+            File f = new File(System.getProperty("user.home"), rel);
+            if (f.isFile()) return f;
+        }
+        // 5) any staging/install copy that moved: walk the Zomboid Workshop
+        // root looking for the jar (this mod lives under .../FSR-UPSC/42/
+        // media/java); cheap, once-per-boot, and only in the shoebox of dirs
+        // the game itself creates there.
+        try {
+            java.nio.file.Path root = java.nio.file.Paths.get(
+                    System.getProperty("user.home"), "Zomboid", "Workshop");
+            if (java.nio.file.Files.isDirectory(root)) {
+                java.nio.file.Path hit = java.nio.file.Files.walk(root, 16)
+                        .filter(p -> p.getFileName() != null && "fsr-upsc-agent.jar"
+                                .equals(p.getFileName().toString()))
+                        .findFirst().orElse(null);
+                if (hit != null && hit.toFile().isFile()) return hit.toFile();
+            }
+        } catch (Throwable ignored) {
+            // fall through
+        }
         return null;
     }
 

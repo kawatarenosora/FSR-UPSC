@@ -56,6 +56,68 @@ public final class FsrTransformer {
     }
 
     /**
+     * Hook targets ZombieBuddy 3.x can pull into the JVM before this
+     * agent's premain runs: on the -javaagent line ZB's own premain goes
+     * first and its boot touches game classes (Display for the
+     * onDisplayCreate callbacks, LuaManager internals for the ZB2Compat /
+     * exposure work). A cold install never transforms classes that are
+     * already loaded, so on ZB 3.0.0-beta3 exactly the pre-loaded targets
+     * stayed dead -- Display#swapBuffers (FG insert), GameWindow,
+     * MultiTextureFBO2 and LuaManager$Exposer (FsrControl exposure) -- while
+     * classes loading later (RenderThread, SpriteRenderer, kinds of GL11)
+     * hooked normally. Standalone and ZB 2.x boots were unaffected.
+     */
+    private static final String[] PRELOADED_PROBES = {
+        "zombie.core.opengl.RenderThread",
+        "zombie.GameWindow",
+        "org.lwjglx.opengl.Display",
+        "zombie.core.textures.MultiTextureFBO2",
+        "zombie.Lua.LuaManager",
+    };
+
+    /** True when at least one hook target is already loaded in this JVM. */
+    static boolean anyTargetLoaded(Instrumentation inst) {
+        try {
+            for (Class<?> c : inst.getAllLoadedClasses()) {
+                String n = c.getName();
+                for (String probe : PRELOADED_PROBES) {
+                    if (probe.equals(n)) {
+                        return true;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            // allLoadedClasses unreliable in this context: retrofit anyway
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Second install with the redefinition strategy (see
+     * {@link #anyTargetLoaded}): covers the ZB 3.x preloaded targets. Types
+     * already transformed by the cold install are skipped without a trace
+     * (see patchFboRender's doc), so this never double-weaves; the probes
+     * are cheap once-per-boot calls from premain.
+     */
+    public static void retrofitLateIfLoaded(Instrumentation inst) {
+        try {
+            if (!anyTargetLoaded(inst)) {
+                return;
+            }
+            String msg = "[fsr-upsc] premain late retrofit: retransform pass"
+                + " for hook targets ZB 3.x preloaded";
+            System.out.println(msg);
+            try { fsrupsc.FsrLog.log(msg); } catch (Throwable ignored) {}
+            install(inst, true, adviceLocator);
+        } catch (Throwable t) {
+            String msg = "[fsr-upsc] premain late retrofit failed: " + t;
+            System.out.println(msg);
+            try { fsrupsc.FsrLog.log(msg); } catch (Throwable ignored) {}
+        }
+    }
+
+    /**
      * Install all hook transformers. With {@code late} set, also retransform
      * matching classes that are loaded already; without it (javaagent
      * premain) nothing is loaded yet and the default strategy applies.

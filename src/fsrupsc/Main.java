@@ -26,14 +26,16 @@ public final class Main {
 
     public static void main(String[] args) {
         try {
-            File jar = AgentJar.find(null);
-            if (jar == null) {
-                System.out.println("[fsr-upsc] agent jar not located, running stock");
-                return;
-            }
+            // Instrumentation first: AgentJar.find also scans loaded
+            // fsrupsc classes for a usable code source (strategy 2).
             Instrumentation inst = zbInstrumentation();
             if (inst == null) {
                 System.out.println("[fsr-upsc] ZombieBuddy instrumentation unavailable, running stock");
+                return;
+            }
+            File jar = AgentJar.find(inst);
+            if (jar == null) {
+                System.out.println("[fsr-upsc] agent jar not located, running stock");
                 return;
             }
             try {

@@ -110,8 +110,9 @@ public final class ZbEntry {
         }
     }
 
-    /** Direct Lua registration for the late-load case (see run0()). */
-    private static void exposeIfReady(Instrumentation inst) {
+    /** Direct Lua registration for the late-load case; package-visible so
+     * the -javaagent premain can reuse it when ZB 3.x pre-ran Lua init. */
+    static void exposeIfReady(Instrumentation inst) {
         try {
             for (Class<?> c : inst.getAllLoadedClasses()) {
                 if ("zombie.Lua.LuaManager".equals(c.getName())) {
